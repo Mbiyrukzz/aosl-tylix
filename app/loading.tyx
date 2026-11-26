@@ -1,6 +1,7 @@
 <script>
-// The loading indicator. It shows while the page makes requests (useApi,
-// capabilities, prefetch) and is edited like any other page.
+// The slim bar at the top while a page makes requests (useApi,
+// capabilities, prefetch). Flat jade with a saffron tip, matching the
+// start-up screen in app/index.html.
 //
 // Tylix gives it one prop, "loading":
 //   loading.active    number of requests in flight
@@ -11,11 +12,13 @@ props
 </script>
 <template>
   <div
+    aria-hidden="true"
     style="{{
       'position:fixed;top:0;left:0;height:3px;z-index:99999;pointer-events:none;' +
-      'background:linear-gradient(90deg,#3563ff,#6fe0ea);transition:width 0.2s ease, opacity 0.3s ease;' +
+      'background:#18c192;border-radius:0 3px 3px 0;' +
+      'transition:width 0.2s ease, opacity 0.3s ease;' +
       'width:' + loading.progress + '%;' +
       'opacity:' + (loading.visible ? 1 : 0)
     }}"
-  ></div>
+  ><div style="position:absolute;right:0;top:0;width:10px;height:3px;border-radius:0 3px 3px 0;background:#f5b544"></div></div>
 </template>

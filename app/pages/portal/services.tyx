@@ -89,7 +89,7 @@ template
   </PageHeader>
 
 {{#if loading}}
-  <div class="grid gap-4 md:grid-cols-2"><div class="tx-skeleton h-40"></div><div class="tx-skeleton h-40"></div></div>
+  <PageLoader label="Loading your services" />
 {{#else if services.length is 0}}
   <div class="tx-empty"><IconPackage /><p class="font-semibold">No services on your account yet</p><p class="text-sm text-muted mt-1">If you already use an Ashmif product, message us and we'll link it here.</p><a href="/portal/catalog" class="tx-btn tx-btn-primary tx-btn-sm mt-4">Browse products</a></div>
 {{#else}}

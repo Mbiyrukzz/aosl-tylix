@@ -114,7 +114,7 @@ onMount
 template
 <div>
 {{#if loading}}
-  <div class="tx-skeleton h-40 mb-6"></div><div class="tx-skeleton h-80"></div>
+  <PageLoader label="Loading company" />
 {{#else if isMissing}}
   <div class="tx-empty"><p class="font-semibold">Company not found</p><a href="/admin/clients" class="tx-btn tx-btn-primary tx-btn-sm mt-4">All companies</a></div>
 {{#else}}

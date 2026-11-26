@@ -99,3 +99,33 @@ resources/mail/notice.html  the one branded email layout
 Product copy is in `app/capabilities/Catalog.tyx` (keep slugs in step with
 `app/services/catalog.ts`).
 # aosl-tylix
+
+## Deploy (ashmif.com)
+
+`.env.production` (git-ignored, mode 600) holds the production settings with
+a generated `AUTH_SECRET` and database password. Fill in `MAIL_PASSWORD`
+(the hello@ashmif.com mailbox) and, optionally, `MPESA_PAYBILL`. Mail goes
+through `mail.payroflix.com:465`, the only sender ashmif.com's SPF allows.
+
+```sh
+# on the server, once: create the database and user (commands are in .env.production)
+npm ci
+npm run build
+npm run migrate:prod        # APP_ENV=production tylix migrate
+npm start                   # NODE_ENV=production tylix start (port 3000)
+npm run schedule:prod       # second process: reminders and SLA escalation
+```
+
+Put it behind nginx (or Flux) on port 3000 with Cloudflare in front;
+`TRUST_PROXY=true` is already set. `CSP_MODE=enforce` was verified against
+every public and portal page.
+
+## Loading states
+
+- `app/index.html` `#aos-boot`: the start-up screen (the AOS mark lights up
+  from the bottom), removed by `public/loading-screen.js` once the page
+  renders. Tylix's own screen is off (`loadingScreen: false`).
+- `app/loading.tyx`: the top progress bar (jade, saffron tip).
+- `<PageLoader label="…" />` / `<LoaderMark />`: the same mark inside pages
+  while their data loads.
+

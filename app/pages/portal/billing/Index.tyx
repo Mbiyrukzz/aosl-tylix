@@ -67,8 +67,7 @@ template
 <div>
   <PageHeader title="Billing" subtitle="Invoices, quotations and receipts for your company." />
 {{#if loading}}
-  <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6"><div class="tx-skeleton h-28"></div><div class="tx-skeleton h-28"></div><div class="tx-skeleton h-28"></div></div>
-  <div class="tx-skeleton h-64"></div>
+  <PageLoader label="Loading billing" />
 {{#else}}
   <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6">
     <StatCard label="Outstanding" value="{{ Fmt.money(outstanding) }}" hint="{{ invoices.filter(d => d.overdue).length ? invoices.filter(d => d.overdue).length + ' overdue' : 'Nothing overdue' }}" tone="{{ outstanding > 0 ? 'peach' : 'mint' }}"><IconExclamationCircle /></StatCard>

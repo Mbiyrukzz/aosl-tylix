@@ -69,7 +69,7 @@ template
     <button slot="actions" type="button" class="tx-btn tx-btn-primary" onclick="{{ inviteOpen = true }}"><IconUserAdd /> Invite a teammate</button>
   </PageHeader>
 {{#if loading}}
-  <div class="grid gap-6 lg:grid-cols-[1.3fr_1fr]"><div class="tx-skeleton h-96"></div><div class="tx-skeleton h-72"></div></div>
+  <PageLoader label="Loading your company" />
 {{#else if company}}
   <div class="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
     <form class="tx-panel p-5 sm:p-7 min-w-0" onsubmit.prevent="{{ save() }}">

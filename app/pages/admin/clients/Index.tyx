@@ -57,7 +57,7 @@ template
     <div class="relative sm:ml-auto sm:w-72"><IconSearch class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" /><input class="tx-input !pl-10 !rounded-full !py-2 text-sm" placeholder="Search companies" aria-label="Search companies" bind:value="{{ query }}" /></div>
   </div>
 {{#if loading}}
-  <div class="tx-skeleton h-80"></div>
+  <PageLoader label="Loading companies" />
 {{#else if visible.length}}
   <div class="tx-panel overflow-hidden"><div class="tx-table-wrap"><table class="tx-table">
     <thead><tr><th>Company</th><th>Tier</th><th class="hidden md:table-cell">People</th><th class="hidden md:table-cell">Open tickets</th><th class="hidden lg:table-cell">Services</th><th class="text-right">Balance</th></tr></thead>

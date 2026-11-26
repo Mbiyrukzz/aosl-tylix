@@ -24,7 +24,7 @@ template
 <div>
   <PageHeader title="Projects" subtitle="Software we're building for you, with progress you can follow." />
 {{#if loading}}
-  <div class="grid gap-4 md:grid-cols-2"><div class="tx-skeleton h-44"></div><div class="tx-skeleton h-44"></div></div>
+  <PageLoader label="Loading projects" />
 {{#else}}
   <div class="grid gap-4 md:grid-cols-2">
 {{#each p in projects}}

@@ -57,8 +57,7 @@ template
     <a slot="actions" href="/admin/inbox" class="tx-btn tx-btn-outline"><IconInbox /> Open inbox</a>
   </PageHeader>
 {{#if loading}}
-  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6"><div class="tx-skeleton h-28"></div><div class="tx-skeleton h-28"></div><div class="tx-skeleton h-28"></div><div class="tx-skeleton h-28"></div></div>
-  <div class="tx-skeleton h-72"></div>
+  <PageLoader label="Loading today's overview" />
 {{#else if data}}
   <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
     <StatCard label="Open tickets" value="{{ String(data.stats.open) }}" hint="{{ data.stats.mine + ' assigned to you' }}" tone="sky" href="/admin/tickets"><IconTicket /></StatCard>

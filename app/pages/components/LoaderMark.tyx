@@ -1,0 +1,18 @@
+component LoaderMark
+
+// The Ashmif loader: the AOS mark lights up from the bottom over a sliding
+// jade track, the same motion as the start-up screen (app/index.html). It
+// fades in after 150ms, so a quick load never flashes it.
+//   <LoaderMark label="Loading tickets…" />          a whole page column
+//   <LoaderMark label="Loading…" size="sm" />        a card or a section
+
+props
+  label: String
+  size: String
+
+template
+  <div class="tx-loader" class:tx-loader-sm="{{ size is 'sm' }}" role="status" aria-live="polite">
+    <div class="aos-loader-mark" aria-hidden="true"><i class="aos-loader-base"></i><i class="aos-loader-fill"></i></div>
+    <div class="aos-loader-track" aria-hidden="true"><div class="aos-loader-bar"></div></div>
+    <span class="tx-loader-label font-mono text-[11px] uppercase tracking-[0.14em]">{{ label or "Loading" }}<span class="aos-loader-caret" aria-hidden="true"></span></span>
+  </div>

@@ -1,0 +1,12 @@
+component PageLoader
+
+// What a page shows while its data loads: the LoaderMark centred in the
+// page column. The sidebar, top bar or site navbar are already on screen.
+
+props
+  label: String
+
+template
+  <div class="min-w-0 min-h-[60vh] flex items-center justify-center" data-page-loader="true">
+    <LoaderMark label="{{ label }}" />
+  </div>

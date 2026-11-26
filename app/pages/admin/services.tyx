@@ -88,7 +88,7 @@ template
     <div class="relative sm:ml-auto sm:w-72"><IconSearch class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" /><input class="tx-input !pl-10 !rounded-full !py-2 text-sm" placeholder="Search services or clients" aria-label="Search" bind:value="{{ query }}" /></div>
   </div>
 {{#if loading}}
-  <div class="tx-skeleton h-72"></div>
+  <PageLoader label="Loading services" />
 {{#else}}
   <div class="tx-panel overflow-hidden"><div class="tx-table-wrap"><table class="tx-table">
     <thead><tr><th>Service</th><th>Client</th><th class="hidden md:table-cell text-right">Price</th><th>Renews</th><th>Status</th></tr></thead>

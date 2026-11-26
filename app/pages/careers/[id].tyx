@@ -93,7 +93,7 @@ template
 <div class="tx-container py-12 sm:py-16">
   <a href="/careers" class="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink no-underline mb-8"><IconArrowLeft class="w-4 h-4" /> All roles</a>
 {{#if loading}}
-  <div class="tx-skeleton h-10 w-2/3 mb-4"></div><div class="tx-skeleton h-64"></div>
+  <PageLoader label="Loading the role" />
 {{#else if isMissing}}
   <div class="tx-empty"><p class="font-semibold">This role isn't open any more</p><a href="/careers/general" class="tx-btn tx-btn-primary mt-4">Send a general application</a></div>
 {{#else}}

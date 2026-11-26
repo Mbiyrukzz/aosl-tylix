@@ -463,6 +463,21 @@ select.tx-input {
 /* Loader (also used by the page loading screen) */
 .tx-loader { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.875rem; padding: 8rem 1.5rem; opacity: 0; animation: tx-fade 0.25s ease 0.15s forwards; }
 .tx-loader-label { font-size: 0.8125rem; color: rgb(var(--tx-muted)); }
+/* The AOS mark lighting up from the bottom (LoaderMark, same motion as the
+   start-up screen in app/index.html). Flat colour only. */
+.aos-loader-mark { position: relative; width: 48px; aspect-ratio: 508 / 512; }
+.aos-loader-mark i { position: absolute; inset: 0; -webkit-mask: url(/brand/aos-mark.png) center / contain no-repeat; mask: url(/brand/aos-mark.png) center / contain no-repeat; }
+.aos-loader-base { background: rgb(var(--tx-line-strong)); }
+.aos-loader-fill { background: rgb(var(--tx-brand)); animation: aos-rise 1.8s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+.aos-loader-track { position: relative; width: 120px; height: 3px; border-radius: 3px; overflow: hidden; background: rgb(var(--tx-line)); }
+.aos-loader-bar { position: absolute; inset: 0 auto 0 0; width: 38%; border-radius: 3px; background: rgb(var(--tx-brand)); animation: aos-slide 1.1s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+.aos-loader-caret { display: inline-block; width: 6px; height: 11px; margin-left: 6px; vertical-align: -1px; background: rgb(var(--tx-gold-soft)); animation: tx-blink 1s steps(1) infinite; }
+.tx-loader-sm { padding: 2.5rem 1rem; gap: 0.75rem; }
+.tx-loader-sm .aos-loader-mark { width: 30px; }
+.tx-loader-sm .aos-loader-track { width: 72px; height: 2px; }
+@keyframes aos-rise { 0% { clip-path: inset(100% 0 0 0); } 45%, 62% { clip-path: inset(0 0 0 0); } 100% { clip-path: inset(0 0 100% 0); } }
+@keyframes aos-slide { from { transform: translateX(-100%); } to { transform: translateX(265%); } }
+@media (prefers-reduced-motion: reduce) { .aos-loader-fill { animation: none; clip-path: none; } .aos-loader-bar { animation: none; width: 100%; opacity: 0.5; } .aos-loader-caret { animation: none; } }
 .tx-spinner { width: 1.125rem; height: 1.125rem; border-radius: 999px; border: 2px solid currentColor; border-right-color: transparent; animation: tx-spin 0.7s linear infinite; display: inline-block; }
 @keyframes tx-spin { to { transform: rotate(360deg); } }
 

@@ -3,3 +3,6 @@ database.sqlite
 .env
 dist/
 storage/logs/*.log
+.env.production
+.env.*.local
+.env.local

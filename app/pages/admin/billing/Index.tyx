@@ -82,7 +82,7 @@ template
     <div class="relative lg:ml-auto lg:w-72"><IconSearch class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" /><input class="tx-input !pl-10 !rounded-full !py-2 text-sm" placeholder="Search" aria-label="Search billing" bind:value="{{ query }}" /></div>
   </div>
 {{#if loading}}
-  <div class="tx-skeleton h-72"></div>
+  <PageLoader label="Loading billing" />
 {{#else}}
   <div class="tx-panel overflow-hidden"><div class="tx-table-wrap"><table class="tx-table">
     <thead><tr><th>Number</th><th>Client</th><th class="hidden md:table-cell">Issued</th><th class="hidden md:table-cell">{{ kind is "quote" ? "Valid until" : "Due" }}</th><th class="text-right">Total</th><th class="text-right hidden sm:table-cell">Balance</th><th>Status</th></tr></thead>

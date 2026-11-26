@@ -42,7 +42,7 @@ template
 
     <h2 class="text-2xl font-bold tracking-tight mb-5">Open roles</h2>
 {{#if loading}}
-    <div class="space-y-3"><div class="tx-skeleton h-20"></div><div class="tx-skeleton h-20"></div></div>
+  <PageLoader label="Loading open roles" />
 {{#else}}
     <div class="grid gap-3">
 {{#each job in jobs}}

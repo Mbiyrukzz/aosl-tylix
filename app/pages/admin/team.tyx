@@ -59,7 +59,7 @@ template
 {{#if Auth.isAdmin()}}<button slot="actions" type="button" class="tx-btn tx-btn-primary" onclick="{{ open = true }}"><IconUserAdd /> Add staff</button>{{/if}}
   </PageHeader>
 {{#if loading}}
-  <div class="tx-skeleton h-64"></div>
+  <PageLoader label="Loading staff" />
 {{#else}}
   <div class="tx-panel overflow-hidden"><ul class="tx-list">
 {{#each u in staff}}

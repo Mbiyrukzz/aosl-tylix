@@ -67,7 +67,7 @@ template
     <button type="button" class="tx-tab" class:tx-tab-active="{{ tab is 'roles' }}" onclick="{{ tab = 'roles' }}">Roles <span class="count">{{ openings.length }}</span></button>
   </div>
 {{#if loading}}
-  <div class="tx-skeleton h-72"></div>
+  <PageLoader label="Loading careers" />
 {{#else if tab is "roles"}}
   <div class="grid gap-4 md:grid-cols-2">
 {{#each o in openings}}

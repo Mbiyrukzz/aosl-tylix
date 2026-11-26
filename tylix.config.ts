@@ -7,6 +7,9 @@ import { defineConfig } from "@tylix/shared";
 process.env.TZ = "UTC";
 
 export default defineConfig({
+  // Tylix's own start-up screen shows the Tylix mark; the Ashmif one lives
+  // in app/index.html (#aos-boot) and public/loading-screen.js.
+  loadingScreen: false,
   // Installable app and offline support (@tylix/pwa). Tylix serves the
   // manifest and the service worker; icons and offline.html are in public/.
   // Pages are never cached (they can hold a signed-in user's data): offline

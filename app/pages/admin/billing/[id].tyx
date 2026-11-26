@@ -91,7 +91,7 @@ onMount
 template
 <div>
 {{#if loading}}
-  <div class="tx-skeleton h-[36rem]"></div>
+  <PageLoader label="Loading document" />
 {{#else if isMissing}}
   <div class="tx-empty"><p class="font-semibold">Document not found</p></div>
 {{#else}}

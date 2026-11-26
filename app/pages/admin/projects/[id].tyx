@@ -67,7 +67,7 @@ onMount
 template
 <div>
 {{#if loading}}
-  <div class="tx-skeleton h-96"></div>
+  <PageLoader label="Loading project" />
 {{#else if isMissing}}
   <div class="tx-empty"><p class="font-semibold">Project not found</p></div>
 {{#else}}

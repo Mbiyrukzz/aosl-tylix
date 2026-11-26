@@ -43,9 +43,7 @@ onMount
 template
 <div>
 {{#if loading}}
-  <div class="tx-skeleton h-24 mb-6"></div>
-  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6"><div class="tx-skeleton h-28"></div><div class="tx-skeleton h-28"></div><div class="tx-skeleton h-28"></div><div class="tx-skeleton h-28"></div></div>
-  <div class="tx-skeleton h-64"></div>
+  <PageLoader label="Loading your overview" />
 {{#else if failed}}
   <div class="tx-alert tx-alert-warn"><p>{{ failed }}</p></div>
 {{#else}}

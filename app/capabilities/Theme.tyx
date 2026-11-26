@@ -15,6 +15,12 @@ action
     }
     this.mode = dark ? "dark" : "light"
     document.documentElement.classList.toggle("dark", dark)
+    try {
+      // Tylix's injected head script reads "theme" on the next page load.
+      localStorage.setItem("theme", this.mode)
+    } catch (err) {
+      // private mode
+    }
   }
 
   set(choice) {

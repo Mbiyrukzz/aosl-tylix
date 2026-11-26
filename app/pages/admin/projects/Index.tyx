@@ -55,7 +55,7 @@ template
     <button type="button" class="tx-tab" class:tx-tab-active="{{ view is 'all' }}" onclick="{{ view = 'all' }}">All</button>
   </div>
 {{#if loading}}
-  <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3"><div class="tx-skeleton h-44"></div><div class="tx-skeleton h-44"></div></div>
+  <PageLoader label="Loading projects" />
 {{#else}}
   <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
 {{#each p in visible}}

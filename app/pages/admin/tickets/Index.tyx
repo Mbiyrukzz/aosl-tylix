@@ -148,7 +148,7 @@ template
   </div>
 
 {{#if loading}}
-  <div class="tx-skeleton h-96"></div>
+  <PageLoader label="Loading tickets" />
 {{#else if visible.length}}
   <div class="tx-panel overflow-hidden">
     <div class="tx-table-wrap">

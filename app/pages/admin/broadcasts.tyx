@@ -87,7 +87,7 @@ template
     <span slot="actions" class="flex gap-2"><a href="/status" target="_blank" class="tx-btn tx-btn-ghost"><IconExternalLink /> Status page</a></span>
   </PageHeader>
 {{#if loading}}
-  <div class="tx-skeleton h-72"></div>
+  <PageLoader label="Loading status and news" />
 {{#else}}
   <div class="grid gap-6 xl:grid-cols-2">
     <section>

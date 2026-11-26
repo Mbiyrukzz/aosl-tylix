@@ -150,8 +150,7 @@ onMount
 template
 <div>
 {{#if loading}}
-  <div class="tx-skeleton h-8 w-1/2 mb-6"></div>
-  <div class="grid gap-6 lg:grid-cols-[1fr_18rem]"><div class="tx-skeleton h-96"></div><div class="tx-skeleton h-64"></div></div>
+  <PageLoader label="Loading ticket" />
 {{#else if isMissing}}
   <div class="tx-empty"><p class="font-semibold">Ticket not found</p><a href="/portal/tickets" class="tx-btn tx-btn-primary tx-btn-sm mt-4">Back to tickets</a></div>
 {{#else}}

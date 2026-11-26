@@ -122,7 +122,7 @@ onMount
 template
 <div>
 {{#if loading}}
-  <div class="tx-skeleton h-[32rem]"></div>
+  <PageLoader label="Loading ticket" />
 {{#else if isMissing}}
   <div class="tx-empty"><p class="font-semibold">Ticket not found</p><a href="/admin/tickets" class="tx-btn tx-btn-primary tx-btn-sm mt-4">All tickets</a></div>
 {{#else}}
