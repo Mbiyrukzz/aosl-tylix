@@ -1,0 +1,155 @@
+page PortalServices
+
+import { IconPackage, IconRefresh, IconArrowUpRight, IconCalendarClock, IconSparkles, IconTrendingUp, IconXCircle, IconGlobe, IconServer, IconMessagesSquare, IconCheckCircle } from "tylix-icons"
+
+title "Services · Ashmif portal"
+
+uses
+  Fmt
+  Live
+  Catalog
+
+state
+  services: []
+  loading: true
+  dialog: null
+  note: ""
+  busy: false
+
+computed
+  active() {
+    return this.services.filter(s => s.status is not "cancelled" and s.status is not "expired")
+  }
+
+  inactive() {
+    return this.services.filter(s => s.status is "cancelled" or s.status is "expired")
+  }
+
+  yearly() {
+    let total = 0
+    for const s of this.active {
+      const mult = { monthly: 12, quarterly: 4, yearly: 1, one_time: 0 }
+      total += Number(s.amount) * Number(Reflect.get(mult, s.cycle) ?? 1)
+    }
+    return total
+  }
+
+action
+  cycle(c) {
+    return { monthly: "/month", quarterly: "/quarter", yearly: "/year", one_time: " once" }[String(c)] ?? ""
+  }
+
+  ask(service, type) {
+    this.dialog = { service, type }
+    this.note = ""
+  }
+
+  async request() {
+    this.busy = true
+    const r = await useApi("/api/portal/requests", { method: "POST", body: { type: this.dialog.type, subscription_id: this.dialog.service.id, details: this.note } })
+    this.busy = false
+    if r.ok {
+      this.dialog = null
+      Live.say(`Request ${r.data.ref} sent. We'll be in touch.`)
+    } else {
+      Live.say(Live.errorOf(r, "Couldn't send the request."))
+    }
+  }
+
+  dayTone(s) {
+    if s.days_left === null {
+      return "text-muted"
+    }
+    if s.days_left < 0 {
+      return "text-coral"
+    }
+    if s.days_left <= 14 {
+      return "text-peach"
+    }
+    return "text-muted"
+  }
+
+  title(type) {
+    return { renewal: "Request renewal", upgrade: "Request an upgrade", cancel: "Cancel this service" }[String(type)] ?? "Request"
+  }
+
+onMount
+  async {
+    const r = await useApi("/api/portal/services")
+    if r.ok {
+      this.services = r.data
+    }
+    this.loading = false
+  }
+
+template
+<div>
+  <PageHeader title="Services" subtitle="Everything your company is subscribed to, with renewal dates.">
+    <a slot="actions" href="/portal/catalog" class="tx-btn tx-btn-primary"><IconSparkles /> Add a product</a>
+  </PageHeader>
+
+{{#if loading}}
+  <div class="grid gap-4 md:grid-cols-2"><div class="tx-skeleton h-40"></div><div class="tx-skeleton h-40"></div></div>
+{{#else if services.length is 0}}
+  <div class="tx-empty"><IconPackage /><p class="font-semibold">No services on your account yet</p><p class="text-sm text-muted mt-1">If you already use an Ashmif product, message us and we'll link it here.</p><a href="/portal/catalog" class="tx-btn tx-btn-primary tx-btn-sm mt-4">Browse products</a></div>
+{{#else}}
+  <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6">
+    <StatCard label="Active services" value="{{ String(active.length) }}" tone="brand"><IconCheckCircle /></StatCard>
+    <StatCard label="Renewing in 30 days" value="{{ String(active.filter(s => s.days_left !== null and s.days_left <= 30).length) }}" tone="peach"><IconCalendarClock /></StatCard>
+    <div class="col-span-2 lg:col-span-1"><StatCard label="Approx. yearly spend" value="{{ Fmt.money(yearly) }}" tone="violet"><IconTrendingUp /></StatCard></div>
+  </div>
+
+  <div class="grid gap-4 md:grid-cols-2">
+{{#each s in active}}
+    <article class="tx-panel p-5 flex flex-col">
+      <div class="flex items-start gap-3">
+        <span class="product-icon !w-11 !h-11 bg-raised text-brand"><ProductIcon slug="{{ s.product ?? s.kind }}" cls="w-5 h-5" /></span>
+        <div class="min-w-0 flex-1">
+          <p class="font-semibold leading-snug">{{ s.name }}</p>
+          <p class="text-xs text-muted mt-0.5">{{ s.product_name ?? Fmt.label(s.kind) }}{{ s.plan ? " · " + s.plan : "" }}</p>
+        </div>
+        <StatusBadge value="{{ s.state }}" />
+      </div>
+      <div class="mt-5 grid grid-cols-2 gap-3 text-sm">
+        <div class="tx-well p-3"><p class="text-[11px] text-muted">Price</p><p class="font-semibold mt-0.5">{{ s.amount ? Fmt.money(s.amount, s.currency) : "Included" }}<span class="text-muted font-normal text-xs">{{ s.amount ? cycle(s.cycle) : "" }}</span></p></div>
+        <div class="tx-well p-3"><p class="text-[11px] text-muted">{{ s.auto_renew ? "Renews automatically" : "Renews on" }}</p><p class="font-semibold mt-0.5">{{ Fmt.date(s.renews_on) }}</p><p class="{{ 'text-xs ' + dayTone(s) }}">{{ s.days_left === null ? "" : s.days_left < 0 ? "Expired " + Math.abs(s.days_left) + "d ago" : s.days_left is 0 ? "Today" : "in " + s.days_left + " days" }}</p></div>
+      </div>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <button type="button" class="tx-btn tx-btn-outline tx-btn-sm" onclick="{{ ask(s, 'renewal') }}"><IconRefresh /> Renew</button>
+        <button type="button" class="tx-btn tx-btn-ghost tx-btn-sm" onclick="{{ ask(s, 'upgrade') }}"><IconTrendingUp /> Upgrade</button>
+{{#if s.product and Catalog.find(s.product)}}
+        <a href="{{ Catalog.find(s.product).loginUrl }}" target="_blank" rel="noopener" class="tx-btn tx-btn-ghost tx-btn-sm ml-auto">Open <IconArrowUpRight /></a>
+{{/if}}
+      </div>
+    </article>
+{{/each}}
+  </div>
+
+{{#if inactive.length}}
+  <h2 class="mt-10 mb-3 font-semibold text-muted">Past services</h2>
+  <div class="tx-panel overflow-hidden"><ul class="tx-list">
+{{#each s in inactive}}
+    <li class="px-5 py-3 flex items-center justify-between text-sm"><span>{{ s.name }}</span><StatusBadge value="{{ s.status }}" /></li>
+{{/each}}
+  </ul></div>
+{{/if}}
+{{/if}}
+
+{{#if dialog}}
+  <Modal title="{{ title(dialog.type) }}" subtitle="{{ dialog.service.name }}" onClose="{{ () => dialog = null }}">
+    <p class="text-sm text-soft">We'll open a request ticket and confirm{{ dialog.type is "renewal" ? " with an invoice" : "" }}. Anything we should know?</p>
+    <textarea class="tx-input mt-4" rows="4" placeholder="{{ dialog.type is 'upgrade' ? 'e.g. we now have 30 staff and need the Group plan' : 'Optional note' }}" bind:value="{{ note }}"></textarea>
+    <div class="mt-5 flex flex-wrap justify-between gap-2">
+{{#if dialog.type is not "cancel"}}
+      <button type="button" class="tx-btn tx-btn-ghost tx-btn-sm text-coral" onclick="{{ dialog = { service: dialog.service, type: 'cancel' } }}"><IconXCircle /> I want to cancel instead</button>
+{{#else}}
+      <span></span>
+{{/if}}
+      <div class="flex gap-2 ml-auto">
+        <button type="button" class="tx-btn tx-btn-ghost" onclick="{{ dialog = null }}">Close</button>
+        <button type="button" class="{{ 'tx-btn ' + (dialog.type is 'cancel' ? 'tx-btn-danger' : 'tx-btn-primary') }}" disabled="{{ busy }}" onclick="{{ request() }}">{{ busy ? "Sending…" : "Send request" }}</button>
+      </div>
+    </div>
+  </Modal>
+{{/if}}
+</div>

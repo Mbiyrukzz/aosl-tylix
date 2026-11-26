@@ -1,0 +1,117 @@
+page Status
+
+import { IconCheckCircle, IconExclamationTriangle, IconRefresh, IconArrowUpRight, IconTool, IconClock } from "tylix-icons"
+
+title "System status · Ashmif"
+
+state
+  products: []
+  incidents: []
+  checkedAt: ""
+  loading: true
+
+computed
+  overall() {
+    if this.products.some(p => p.state is "outage") {
+      return "outage"
+    }
+    if this.products.some(p => p.state is "degraded") {
+      return "degraded"
+    }
+    if this.products.some(p => p.state is "maintenance") {
+      return "maintenance"
+    }
+    return "operational"
+  }
+
+  active() {
+    return this.incidents.filter(i => i.active)
+  }
+
+  past() {
+    return this.incidents.filter(i => not i.active)
+  }
+
+action
+  async load() {
+    const r = await useApi("/api/public/status")
+    if r.ok {
+      this.products = r.data.products
+      this.incidents = r.data.incidents
+      this.checkedAt = new Date(r.data.checked_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    }
+    this.loading = false
+  }
+
+  when(value) {
+    return new Date(String(value)).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
+  }
+
+onMount
+  async {
+    await this.load()
+    setInterval(() => this.load(), 60000)
+  }
+
+template
+<div class="relative overflow-hidden">
+  <div class="absolute inset-x-0 top-0 h-[30rem] bg-grid mask-fade-b"></div>
+  <div class="relative tx-container max-w-4xl py-14 sm:py-20">
+    <p class="tx-eyebrow mb-5">System status</p>
+{{#if loading}}
+    <div class="tx-skeleton h-28"></div>
+{{#else}}
+    <div class="tx-panel p-6 sm:p-8 flex items-center gap-5" class:border-mint="{{ overall is 'operational' }}">
+{{#if overall is "operational"}}
+      <span class="w-14 h-14 rounded-2xl bg-mint/10 text-mint flex items-center justify-center shrink-0"><IconCheckCircle class="w-7 h-7" /></span>
+      <div><h1 class="text-2xl sm:text-3xl font-bold tracking-tight">All systems operational</h1><p class="text-sm text-muted mt-1">Every Ashmif product is running normally.</p></div>
+{{#else if overall is "maintenance"}}
+      <span class="w-14 h-14 rounded-2xl bg-sky/10 text-sky flex items-center justify-center shrink-0"><IconTool class="w-7 h-7" /></span>
+      <div><h1 class="text-2xl sm:text-3xl font-bold tracking-tight">Scheduled maintenance</h1><p class="text-sm text-muted mt-1">Some services may be briefly unavailable.</p></div>
+{{#else}}
+      <span class="w-14 h-14 rounded-2xl bg-peach/10 text-peach flex items-center justify-center shrink-0"><IconExclamationTriangle class="w-7 h-7" /></span>
+      <div><h1 class="text-2xl sm:text-3xl font-bold tracking-tight">{{ overall is "outage" ? "Service disruption" : "Some systems are degraded" }}</h1><p class="text-sm text-muted mt-1">We're on it. Updates below.</p></div>
+{{/if}}
+    </div>
+
+{{#if active.length}}
+    <h2 class="mt-10 mb-4 font-bold">Ongoing</h2>
+    <div class="space-y-3">
+{{#each i in active}}
+      <div class="tx-panel p-5 border-l-4" class:border-l-coral="{{ i.impact is 'major' }}" class:border-l-peach="{{ i.impact is 'minor' }}" class:border-l-sky="{{ i.impact is 'maintenance' }}">
+        <div class="flex flex-wrap items-center gap-2"><StatusBadge value="{{ i.status }}" dot="{{ true }}" /><span class="text-sm text-muted">{{ i.product_name }} · since {{ when(i.started_at) }}</span></div>
+        <p class="mt-2 font-semibold">{{ i.title }}</p>
+{{#if i.body}}<p class="mt-1 text-sm text-soft tx-prose">{{ i.body }}</p>{{/if}}
+      </div>
+{{/each}}
+    </div>
+{{/if}}
+
+    <div class="mt-10 tx-panel overflow-hidden">
+      <div class="px-5 py-3.5 border-b border-line flex items-center justify-between">
+        <p class="font-semibold text-sm">Products</p>
+        <button type="button" class="text-xs text-muted inline-flex items-center gap-1.5 bg-transparent border-0 cursor-pointer hover:text-ink" onclick="{{ load() }}"><IconRefresh class="w-3.5 h-3.5" /> Checked {{ checkedAt }}</button>
+      </div>
+      <ul class="tx-list">
+{{#each p in products}}
+        <li class="px-5 py-4 flex items-center gap-4">
+          <ProductIcon slug="{{ p.slug }}" cls="w-5 h-5 text-muted" />
+          <span class="flex-1 min-w-0"><span class="font-medium">{{ p.name }}</span> <a href="{{ p.url }}" target="_blank" rel="noopener" class="text-xs text-muted hover:text-ink no-underline ml-1">{{ p.url.replace("https://", "") }} <IconArrowUpRight class="inline w-3 h-3" /></a></span>
+          <StatusBadge value="{{ p.state }}" dot="{{ true }}" />
+        </li>
+{{/each}}
+      </ul>
+    </div>
+
+    <h2 class="mt-12 mb-4 font-bold">Past 14 days</h2>
+{{#each i in past}}
+    <div class="py-4 border-b border-line">
+      <div class="flex flex-wrap items-center gap-2 text-sm text-muted"><IconClock class="w-3.5 h-3.5" /> {{ when(i.started_at) }} · {{ i.product_name }} <StatusBadge value="resolved" /></div>
+      <p class="mt-1.5 font-medium">{{ i.title }}</p>
+    </div>
+{{#else}}
+    <p class="text-sm text-muted">No incidents in the last 14 days.</p>
+{{/each}}
+{{/if}}
+  </div>
+</div>

@@ -1,0 +1,154 @@
+page AdminDocument
+
+import { IconSend, IconPencil, IconPrinter, IconCoins, IconArrowRight, IconXCircle, IconReceipt, IconDocumentText, IconTrash } from "tylix-icons"
+
+props
+  id: string
+
+uses
+  Fmt
+  Live
+
+state
+  doc: null
+  company: null
+  paybill: ""
+  loading: true
+  isMissing: false
+  showReceipt: false
+  payOpen: false
+  pay: { amount: "", method: "mpesa", reference: "" }
+  busy: false
+
+action
+  async load() {
+    const r = await useApi(`/api/admin/billing/${this.id}`)
+    if r.ok {
+      this.doc = r.data.document
+      this.company = r.data.company
+      this.paybill = r.data.paybill
+      this.pay.amount = String(r.data.document.balance)
+      document.title = `${r.data.document.number} · Ashmif console`
+    } else {
+      this.isMissing = true
+    }
+    this.loading = false
+  }
+
+  async send() {
+    if not confirm(`Send ${this.doc.number} to everyone at ${this.doc.company_name}?`) {
+      return null
+    }
+    this.busy = true
+    const r = await useApi(`/api/admin/billing/${this.id}/send`, { method: "POST" })
+    this.busy = false
+    Live.say(r.ok ? "Sent to the client" : Live.errorOf(r, "Couldn't send."))
+    await this.load()
+  }
+
+  async recordPayment() {
+    this.busy = true
+    const r = await useApi(`/api/admin/billing/${this.id}/payment`, { method: "POST", body: this.pay })
+    this.busy = false
+    if r.ok {
+      this.payOpen = false
+      Live.say("Payment recorded. The client was sent a receipt.")
+      await this.load()
+    } else {
+      Live.say(Live.errorOf(r, "Couldn't record the payment."))
+    }
+  }
+
+  async convert() {
+    this.busy = true
+    const r = await useApi(`/api/admin/billing/${this.id}/convert`, { method: "POST" })
+    this.busy = false
+    if r.ok {
+      window.location.href = `/admin/billing/${r.data.id}`
+    } else {
+      Live.say(Live.errorOf(r, "Couldn't convert."))
+    }
+  }
+
+  async cancelDoc() {
+    if not confirm(this.doc.status is "draft" ? "Delete this draft?" : "Cancel this document? The client will see it as cancelled.") {
+      return null
+    }
+    const wasDraft = this.doc.status is "draft"
+    await useApi(`/api/admin/billing/${this.id}`, { method: "DELETE" })
+    if wasDraft {
+      window.location.href = "/admin/billing"
+    } else {
+      await this.load()
+    }
+  }
+
+onMount
+  async {
+    await this.load()
+  }
+
+template
+<div>
+{{#if loading}}
+  <div class="tx-skeleton h-[36rem]"></div>
+{{#else if isMissing}}
+  <div class="tx-empty"><p class="font-semibold">Document not found</p></div>
+{{#else}}
+  <div class="no-print">
+    <PageHeader title="{{ doc.number }}" subtitle="{{ doc.company_name + (doc.subject ? ' · ' + doc.subject : '') }}" back="/admin/billing" backLabel="Billing">
+      <span slot="actions" class="flex flex-wrap gap-2 items-center"><StatusBadge value="{{ doc.overdue ? 'overdue' : doc.status }}" dot="{{ true }}" /><button type="button" class="tx-btn tx-btn-outline tx-btn-sm" onclick="{{ window.print() }}"><IconPrinter /> Print / PDF</button></span>
+    </PageHeader>
+  </div>
+  <div class="grid gap-6 xl:grid-cols-[1fr_20rem]">
+    <div class="min-w-0">
+{{#if doc.receipt_number}}
+      <div class="tx-tabs w-fit mb-4 no-print">
+        <button type="button" class="tx-tab" class:tx-tab-active="{{ not showReceipt }}" onclick="{{ showReceipt = false }}"><IconDocumentText class="w-4 h-4" /> Invoice</button>
+        <button type="button" class="tx-tab" class:tx-tab-active="{{ showReceipt }}" onclick="{{ showReceipt = true }}"><IconReceipt class="w-4 h-4" /> Receipt {{ doc.receipt_number }}</button>
+      </div>
+{{/if}}
+      <DocumentPaper doc="{{ doc }}" company="{{ company }}" paybill="{{ paybill }}" receipt="{{ showReceipt and Boolean(doc.receipt_number) }}" />
+    </div>
+    <aside class="space-y-4 no-print">
+      <div class="tx-panel p-5 space-y-2">
+        <p class="font-semibold mb-2">Actions</p>
+{{#if doc.status is "draft"}}
+        <button type="button" class="tx-btn tx-btn-primary tx-btn-block" disabled="{{ busy }}" onclick="{{ send() }}"><IconSend /> Send to client</button>
+        <a href="{{ `/admin/billing/new?id=${doc.id}` }}" class="tx-btn tx-btn-outline tx-btn-block"><IconPencil /> Edit draft</a>
+{{/if}}
+{{#if doc.kind is "invoice" and (doc.status is "sent" or doc.status is "partial" or doc.status is "draft")}}
+        <button type="button" class="tx-btn tx-btn-outline tx-btn-block" onclick="{{ payOpen = true }}"><IconCoins /> Record payment</button>
+{{/if}}
+{{#if doc.status is "sent"}}
+        <button type="button" class="tx-btn tx-btn-ghost tx-btn-block" disabled="{{ busy }}" onclick="{{ send() }}"><IconSend /> Send again</button>
+{{/if}}
+{{#if doc.kind is "quote" and (doc.status is "accepted" or doc.status is "sent")}}
+        <button type="button" class="tx-btn tx-btn-primary tx-btn-block" disabled="{{ busy }}" onclick="{{ convert() }}"><IconArrowRight /> Convert to invoice</button>
+{{/if}}
+{{#if doc.status is not "paid" and doc.status is not "cancelled" and doc.status is not "converted"}}
+        <button type="button" class="tx-btn tx-btn-danger tx-btn-block" onclick="{{ cancelDoc() }}">{{#if doc.status is "draft"}}<IconTrash /> Delete draft{{#else}}<IconXCircle /> Cancel document{{/if}}</button>
+{{/if}}
+{{#if doc.status is "paid"}}<p class="text-sm text-mint">Paid in full {{ Fmt.date(doc.paid_at) }} · {{ String(doc.payment_method ?? "").toUpperCase() }} {{ doc.payment_ref ?? "" }}</p>{{/if}}
+      </div>
+      <div class="tx-panel p-5 text-sm space-y-2">
+        <div class="flex justify-between"><span class="text-muted">Total</span><span class="font-semibold tabular">{{ Fmt.money(doc.total, doc.currency) }}</span></div>
+        <div class="flex justify-between"><span class="text-muted">Paid</span><span class="tabular">{{ Fmt.money(doc.amount_paid, doc.currency) }}</span></div>
+        <div class="flex justify-between font-bold"><span>Balance</span><span class="tabular">{{ Fmt.money(doc.balance, doc.currency) }}</span></div>
+        <a href="{{ `/admin/clients/${doc.company_id}` }}" class="tx-link text-xs inline-block pt-2">Open {{ doc.company_name }}</a>
+      </div>
+    </aside>
+  </div>
+{{#if payOpen}}
+  <Modal title="Record a payment" subtitle="{{ doc.number + ' · balance ' + Fmt.money(doc.balance, doc.currency) }}" onClose="{{ () => payOpen = false }}">
+    <div class="grid sm:grid-cols-2 gap-x-3">
+      <div class="tx-field"><label class="tx-label" for="rp-amt">Amount received</label><input id="rp-amt" class="tx-input" inputmode="decimal" bind:value="{{ pay.amount }}" /></div>
+      <div class="tx-field"><label class="tx-label" for="rp-m">Method</label><select id="rp-m" class="tx-input" bind:value="{{ pay.method }}"><option value="mpesa">M-Pesa</option><option value="bank">Bank transfer</option><option value="cheque">Cheque</option><option value="cash">Cash</option><option value="card">Card</option></select></div>
+    </div>
+    <div class="tx-field"><label class="tx-label" for="rp-ref">Reference</label><input id="rp-ref" class="tx-input font-mono uppercase" placeholder="M-Pesa code or bank reference" bind:value="{{ pay.reference }}" /></div>
+    <p class="text-xs text-muted mb-4">Paying the full balance issues a receipt number and emails the client.</p>
+    <div class="flex justify-end gap-2"><button type="button" class="tx-btn tx-btn-ghost" onclick="{{ payOpen = false }}">Cancel</button><button type="button" class="tx-btn tx-btn-primary" disabled="{{ busy }}" onclick="{{ recordPayment() }}">Record payment</button></div>
+  </Modal>
+{{/if}}
+{{/if}}
+</div>

@@ -1,0 +1,155 @@
+page AdminBroadcasts
+
+import { IconPlus, IconMegaphone, IconAlertOctagon, IconTrash, IconEye, IconEyeSlash, IconExternalLink } from "tylix-icons"
+
+title "Status & news · Ashmif console"
+
+uses
+  Fmt
+  Live
+  Catalog
+
+state
+  announcements: []
+  incidents: []
+  loading: true
+  incidentOpen: false
+  incident: { product: "", title: "", body: "", impact: "minor" }
+  newsOpen: false
+  news: { title: "", body: "", level: "info", audience: "clients", expires_at: "" }
+  updating: null
+  note: ""
+  nextStatus: "identified"
+
+action
+  async load() {
+    const r = await useApi("/api/admin/broadcasts")
+    if r.ok {
+      this.announcements = r.data.announcements
+      this.incidents = r.data.incidents
+    }
+    this.loading = false
+  }
+
+  async createIncident() {
+    const r = await useApi("/api/admin/incidents", { method: "POST", body: this.incident })
+    if r.ok {
+      this.incidentOpen = false
+      this.incident = { product: "", title: "", body: "", impact: "minor" }
+      Live.say("Incident posted on the status page")
+      await this.load()
+    } else {
+      Live.say(Live.errorOf(r, "Couldn't post."))
+    }
+  }
+
+  async updateIncident() {
+    await useApi(`/api/admin/incidents/${this.updating.id}`, { method: "PUT", body: { status: this.nextStatus, note: this.note } })
+    this.updating = null
+    this.note = ""
+    Live.say("Status page updated")
+    await this.load()
+  }
+
+  async createNews() {
+    const r = await useApi("/api/admin/announcements", { method: "POST", body: this.news })
+    if r.ok {
+      this.newsOpen = false
+      this.news = { title: "", body: "", level: "info", audience: "clients", expires_at: "" }
+      Live.say("Announcement published")
+      await this.load()
+    } else {
+      Live.say(Live.errorOf(r, "Couldn't publish."))
+    }
+  }
+
+  async toggle(a) {
+    await useApi(`/api/admin/announcements/${a.id}`, { method: "PUT", body: { published: not a.published } })
+    await this.load()
+  }
+
+  async removeNews(a) {
+    if not confirm("Delete this announcement?") {
+      return null
+    }
+    await useApi(`/api/admin/announcements/${a.id}`, { method: "DELETE" })
+    await this.load()
+  }
+
+onMount
+  async {
+    await this.load()
+  }
+
+template
+<div>
+  <PageHeader title="Status & news" subtitle="Incidents on the public status page and announcements on client dashboards.">
+    <span slot="actions" class="flex gap-2"><a href="/status" target="_blank" class="tx-btn tx-btn-ghost"><IconExternalLink /> Status page</a></span>
+  </PageHeader>
+{{#if loading}}
+  <div class="tx-skeleton h-72"></div>
+{{#else}}
+  <div class="grid gap-6 xl:grid-cols-2">
+    <section>
+      <div class="flex items-center justify-between mb-3"><h2 class="font-semibold flex items-center gap-2"><IconAlertOctagon class="w-4 h-4 text-coral" /> Incidents</h2><button type="button" class="tx-btn tx-btn-danger tx-btn-sm" onclick="{{ incidentOpen = true }}"><IconPlus /> Report incident</button></div>
+      <div class="space-y-3">
+{{#each i in incidents}}
+        <article class="tx-panel p-4">
+          <div class="flex flex-wrap items-center gap-2"><StatusBadge value="{{ i.status }}" dot="{{ true }}" /><span class="tx-badge">{{ i.product_name }}</span><span class="tx-badge">{{ Fmt.label(i.impact) }}</span><span class="text-xs text-muted ml-auto">{{ Fmt.dateTime(i.started_at) }}</span></div>
+          <p class="mt-2 font-semibold">{{ i.title }}</p>
+{{#if i.body}}<p class="mt-1 text-sm text-soft tx-prose">{{ i.body }}</p>{{/if}}
+{{#if i.active}}<button type="button" class="tx-btn tx-btn-outline tx-btn-sm mt-3" onclick="{{ updating = i }}">Post an update</button>{{/if}}
+        </article>
+{{#else}}
+        <div class="tx-empty"><p class="text-sm text-muted">No incidents. All systems operational.</p></div>
+{{/each}}
+      </div>
+    </section>
+    <section>
+      <div class="flex items-center justify-between mb-3"><h2 class="font-semibold flex items-center gap-2"><IconMegaphone class="w-4 h-4 text-brand" /> Announcements</h2><button type="button" class="tx-btn tx-btn-primary tx-btn-sm" onclick="{{ newsOpen = true }}"><IconPlus /> New announcement</button></div>
+      <div class="space-y-3">
+{{#each a in announcements}}
+        <article class="tx-panel p-4" class:opacity-60="{{ not a.published }}">
+          <div class="flex flex-wrap items-center gap-2"><span class="tx-badge tone-brand">{{ Fmt.label(a.level) }}</span><span class="tx-badge">{{ Fmt.label(a.audience) }}</span>{{#if not a.published}}<span class="tx-badge">Hidden</span>{{/if}}<span class="text-xs text-muted ml-auto">{{ Fmt.date(a.created_at) }}</span></div>
+          <p class="mt-2 font-semibold">{{ a.title }}</p>
+          <p class="mt-1 text-sm text-soft tx-prose">{{ a.body }}</p>
+          <div class="mt-3 flex gap-2"><button type="button" class="tx-btn tx-btn-ghost tx-btn-sm" onclick="{{ toggle(a) }}">{{#if a.published}}<IconEyeSlash /> Hide{{#else}}<IconEye /> Publish{{/if}}</button><button type="button" class="tx-btn tx-btn-ghost tx-btn-sm" onclick="{{ removeNews(a) }}"><IconTrash /> Delete</button></div>
+        </article>
+{{#else}}
+        <div class="tx-empty"><p class="text-sm text-muted">No announcements.</p></div>
+{{/each}}
+      </div>
+    </section>
+  </div>
+{{/if}}
+{{#if incidentOpen}}
+  <Modal title="Report an incident" subtitle="It appears on the public status page and client dashboards straight away." onClose="{{ () => incidentOpen = false }}">
+    <div class="grid sm:grid-cols-2 gap-x-3">
+      <div class="tx-field"><label class="tx-label" for="in-prod">Product</label><select id="in-prod" class="tx-input" bind:value="{{ incident.product }}"><option value="">Pick one</option>{{#each p in Catalog.products}}<option value="{{ p.slug }}">{{ p.name }}</option>{{/each}}</select></div>
+      <div class="tx-field"><label class="tx-label" for="in-imp">Impact</label><select id="in-imp" class="tx-input" bind:value="{{ incident.impact }}"><option value="minor">Degraded</option><option value="major">Outage</option><option value="maintenance">Maintenance</option></select></div>
+    </div>
+    <div class="tx-field"><label class="tx-label" for="in-title">What's happening?</label><input id="in-title" class="tx-input" placeholder="e.g. SMS delivery delayed on Airtel" bind:value="{{ incident.title }}" /></div>
+    <div class="tx-field"><label class="tx-label" for="in-body">Details for clients</label><textarea id="in-body" rows="3" class="tx-input" bind:value="{{ incident.body }}"></textarea></div>
+    <div class="flex justify-end gap-2"><button type="button" class="tx-btn tx-btn-ghost" onclick="{{ incidentOpen = false }}">Cancel</button><button type="button" class="tx-btn tx-btn-danger" onclick="{{ createIncident() }}">Post incident</button></div>
+  </Modal>
+{{/if}}
+{{#if updating}}
+  <Modal title="Update incident" subtitle="{{ updating.title }}" onClose="{{ () => updating = null }}">
+    <div class="tx-field"><label class="tx-label" for="iu-status">New status</label><select id="iu-status" class="tx-input" bind:value="{{ nextStatus }}"><option value="investigating">Investigating</option><option value="identified">Identified</option><option value="monitoring">Monitoring a fix</option><option value="resolved">Resolved</option></select></div>
+    <div class="tx-field"><label class="tx-label" for="iu-note">Update for clients</label><textarea id="iu-note" rows="3" class="tx-input" bind:value="{{ note }}"></textarea></div>
+    <div class="flex justify-end gap-2"><button type="button" class="tx-btn tx-btn-ghost" onclick="{{ updating = null }}">Cancel</button><button type="button" class="tx-btn tx-btn-primary" onclick="{{ updateIncident() }}">Post update</button></div>
+  </Modal>
+{{/if}}
+{{#if newsOpen}}
+  <Modal title="New announcement" subtitle="Shown at the top of every client's portal overview." onClose="{{ () => newsOpen = false }}">
+    <div class="tx-field"><label class="tx-label" for="nw-title">Title</label><input id="nw-title" class="tx-input" bind:value="{{ news.title }}" /></div>
+    <div class="tx-field"><label class="tx-label" for="nw-body">Message</label><textarea id="nw-body" rows="4" class="tx-input" bind:value="{{ news.body }}"></textarea></div>
+    <div class="grid sm:grid-cols-3 gap-x-3">
+      <div class="tx-field"><label class="tx-label" for="nw-level">Kind</label><select id="nw-level" class="tx-input" bind:value="{{ news.level }}"><option value="info">Info</option><option value="new">New feature</option><option value="maintenance">Maintenance</option><option value="warning">Warning</option></select></div>
+      <div class="tx-field"><label class="tx-label" for="nw-aud">Audience</label><select id="nw-aud" class="tx-input" bind:value="{{ news.audience }}"><option value="clients">Clients</option><option value="everyone">Everyone</option><option value="staff">Staff only</option></select></div>
+      <div class="tx-field"><label class="tx-label" for="nw-exp">Hide after</label><input id="nw-exp" type="date" class="tx-input" bind:value="{{ news.expires_at }}" /></div>
+    </div>
+    <div class="flex justify-end gap-2"><button type="button" class="tx-btn tx-btn-ghost" onclick="{{ newsOpen = false }}">Cancel</button><button type="button" class="tx-btn tx-btn-primary" onclick="{{ createNews() }}">Publish</button></div>
+  </Modal>
+{{/if}}
+</div>

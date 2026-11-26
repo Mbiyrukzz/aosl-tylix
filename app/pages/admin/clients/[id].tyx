@@ -1,0 +1,279 @@
+page AdminClient
+
+import { IconPencil, IconUserAdd, IconPlus, IconMail, IconPhone, IconGlobe, IconMapPin, IconTicket, IconPackage, IconKanban, IconReceipt, IconUsers, IconUserRemove, IconInbox, IconCheckCircle, IconClock } from "tylix-icons"
+
+props
+  id: string
+
+uses
+  Fmt
+  Live
+
+state
+  company: null
+  people: []
+  subscriptions: []
+  tickets: []
+  projects: []
+  documents: []
+  staff: []
+  loading: true
+  isMissing: false
+  tab: "overview"
+  editOpen: false
+  personOpen: false
+  person: { name: "", email: "", job_title: "" }
+  subOpen: false
+  editingSub: null
+  projectOpen: false
+  busy: false
+
+computed
+  balance() {
+    return this.documents.filter(d => d.kind is "invoice" and (d.status is "sent" or d.status is "partial")).reduce((s, d) => s + d.balance, 0)
+  }
+
+  openTickets() {
+    return this.tickets.filter(t => t.status is not "resolved" and t.status is not "closed")
+  }
+
+  manager() {
+    return this.staff.find(s => s.id is this.company?.account_manager_id) ?? null
+  }
+
+action
+  async load() {
+    const r = await useApi(`/api/admin/companies/${this.id}`)
+    if r.ok {
+      this.company = r.data.company
+      this.people = r.data.people
+      this.subscriptions = r.data.subscriptions
+      this.tickets = r.data.tickets
+      this.projects = r.data.projects
+      this.documents = r.data.documents
+      document.title = `${r.data.company.name} · Ashmif console`
+    } else {
+      this.isMissing = true
+    }
+    this.loading = false
+  }
+
+  async addPerson() {
+    this.busy = true
+    const r = await useApi(`/api/admin/companies/${this.id}/people`, { method: "POST", body: this.person })
+    this.busy = false
+    if r.ok {
+      Live.say(r.data.moved ? "Existing account moved to this company" : `Invitation sent to ${this.person.email}`)
+      this.personOpen = false
+      this.person = { name: "", email: "", job_title: "" }
+      await this.load()
+    } else {
+      Live.say(Live.errorOf(r, "Couldn't add them."))
+    }
+  }
+
+  async removePerson(u) {
+    if not confirm(`Remove ${u.name} from ${this.company.name}? Their account stays, without access to this company.`) {
+      return null
+    }
+    await useApi(`/api/admin/companies/${this.id}/people/${u.id}`, { method: "DELETE" })
+    await this.load()
+  }
+
+  editSub(s) {
+    this.editingSub = s
+    this.subOpen = true
+  }
+
+  async afterSub() {
+    this.subOpen = false
+    this.editingSub = null
+    Live.say("Services updated")
+    await this.load()
+  }
+
+  async afterCompany() {
+    this.editOpen = false
+    Live.say("Company saved")
+    await this.load()
+  }
+
+  afterProject(p) {
+    window.location.href = `/admin/projects/${p.id}`
+  }
+
+onMount
+  async {
+    const s = await useApi("/api/admin/staff")
+    if s.ok {
+      this.staff = s.data
+    }
+    await this.load()
+  }
+
+template
+<div>
+{{#if loading}}
+  <div class="tx-skeleton h-40 mb-6"></div><div class="tx-skeleton h-80"></div>
+{{#else if isMissing}}
+  <div class="tx-empty"><p class="font-semibold">Company not found</p><a href="/admin/clients" class="tx-btn tx-btn-primary tx-btn-sm mt-4">All companies</a></div>
+{{#else}}
+  <PageHeader title="{{ company.name }}" eyebrow="{{ company.industry ?? 'Client' }}" back="/admin/clients" backLabel="Companies">
+    <span slot="actions" class="flex flex-wrap gap-2 items-center">
+      <StatusBadge value="{{ company.tier }}" />
+      <StatusBadge value="{{ company.status }}" />
+      <button type="button" class="tx-btn tx-btn-outline tx-btn-sm" onclick="{{ editOpen = true }}"><IconPencil /> Edit</button>
+    </span>
+  </PageHeader>
+
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+    <StatCard label="Open tickets" value="{{ String(openTickets.length) }}" tone="sky"><IconTicket /></StatCard>
+    <StatCard label="Active services" value="{{ String(subscriptions.filter(s => s.status is 'active').length) }}" tone="brand"><IconPackage /></StatCard>
+    <StatCard label="Projects" value="{{ String(projects.length) }}" tone="violet"><IconKanban /></StatCard>
+    <StatCard label="Balance" value="{{ Fmt.money(balance) }}" tone="{{ balance > 0 ? 'peach' : 'mint' }}"><IconReceipt /></StatCard>
+  </div>
+
+  <div class="tx-tabs mb-5">
+    <button type="button" class="tx-tab" class:tx-tab-active="{{ tab is 'overview' }}" onclick="{{ tab = 'overview' }}">Overview</button>
+    <button type="button" class="tx-tab" class:tx-tab-active="{{ tab is 'people' }}" onclick="{{ tab = 'people' }}">People <span class="count">{{ people.length }}</span></button>
+    <button type="button" class="tx-tab" class:tx-tab-active="{{ tab is 'services' }}" onclick="{{ tab = 'services' }}">Services <span class="count">{{ subscriptions.length }}</span></button>
+    <button type="button" class="tx-tab" class:tx-tab-active="{{ tab is 'tickets' }}" onclick="{{ tab = 'tickets' }}">Tickets <span class="count">{{ tickets.length }}</span></button>
+    <button type="button" class="tx-tab" class:tx-tab-active="{{ tab is 'projects' }}" onclick="{{ tab = 'projects' }}">Projects <span class="count">{{ projects.length }}</span></button>
+    <button type="button" class="tx-tab" class:tx-tab-active="{{ tab is 'billing' }}" onclick="{{ tab = 'billing' }}">Billing <span class="count">{{ documents.length }}</span></button>
+  </div>
+
+{{#if tab is "overview"}}
+  <div class="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+    <section class="tx-panel p-5 space-y-3 text-sm">
+      <p class="tx-kicker">Details</p>
+{{#if company.email}}<p class="flex items-center gap-2.5"><IconMail class="w-4 h-4 text-muted" /> <a href="{{ 'mailto:' + company.email }}" class="tx-link">{{ company.email }}</a></p>{{/if}}
+{{#if company.phone}}<p class="flex items-center gap-2.5"><IconPhone class="w-4 h-4 text-muted" /> {{ company.phone }}</p>{{/if}}
+{{#if company.website}}<p class="flex items-center gap-2.5"><IconGlobe class="w-4 h-4 text-muted" /> {{ company.website }}</p>{{/if}}
+{{#if company.address}}<p class="flex items-center gap-2.5"><IconMapPin class="w-4 h-4 text-muted" /> {{ company.address }}</p>{{/if}}
+{{#if company.kra_pin}}<p><span class="text-muted">KRA PIN</span> <span class="font-mono">{{ company.kra_pin }}</span></p>{{/if}}
+      <p><span class="text-muted">Account manager</span> {{ manager ? manager.name : "None" }}</p>
+      <p><span class="text-muted">Client since</span> {{ Fmt.date(company.created_at) }}</p>
+{{#if company.notes}}<div class="tx-well p-3 mt-2"><p class="tx-kicker mb-1">Internal notes</p><p class="tx-prose text-sm">{{ company.notes }}</p></div>{{/if}}
+    </section>
+    <section class="tx-panel overflow-hidden">
+      <div class="px-5 py-4 border-b border-line flex items-center justify-between"><h2 class="font-semibold">Open tickets</h2><a href="/admin/tickets?new=1" class="text-sm tx-link">New ticket</a></div>
+{{#if openTickets.length}}
+      <ul class="tx-list">{{#each t in openTickets}}<li><a href="{{ `/admin/tickets/${t.id}` }}" class="flex items-center justify-between gap-3 px-5 py-3 no-underline text-ink hover:bg-raised/60"><span class="min-w-0"><span class="block text-sm font-semibold truncate">{{ t.subject }}</span><span class="block text-xs text-muted">{{ t.ref }} · {{ t.requester?.name }} · {{ Fmt.ago(t.last_activity_at) }}</span></span><StatusBadge value="{{ t.status }}" /></a></li>{{/each}}</ul>
+{{#else}}
+      <p class="px-5 py-6 text-sm text-muted flex items-center gap-2"><IconCheckCircle class="w-4 h-4 text-mint" /> No open tickets.</p>
+{{/if}}
+    </section>
+  </div>
+{{/if}}
+
+{{#if tab is "people"}}
+  <div class="flex justify-end mb-3"><button type="button" class="tx-btn tx-btn-primary tx-btn-sm" onclick="{{ personOpen = true }}"><IconUserAdd /> Add a person</button></div>
+  <div class="tx-panel overflow-hidden"><ul class="tx-list">
+{{#each u in people}}
+    <li class="px-5 py-3.5 flex items-center gap-3">
+      <Avatar name="{{ u.name }}" url="{{ u.avatar_url }}" size="{{ 36 }}" />
+      <div class="min-w-0 flex-1"><p class="text-sm font-semibold">{{ u.name }}</p><p class="text-xs text-muted truncate">{{ u.job_title ? u.job_title + " · " : "" }}{{ u.email }}{{ u.phone ? " · " + u.phone : "" }}</p></div>
+      <span class="hidden sm:block text-xs text-muted">{{ u.last_seen_at ? "Active " + Fmt.ago(u.last_seen_at) : "Never signed in" }}</span>
+      <a href="{{ `/admin/inbox?client=${u.id}` }}" class="tx-icon-btn" title="Messages" aria-label="{{ 'Messages with ' + u.name }}"><IconInbox /></a>
+      <button type="button" class="tx-icon-btn" title="Remove from company" aria-label="{{ 'Remove ' + u.name }}" onclick="{{ removePerson(u) }}"><IconUserRemove /></button>
+    </li>
+{{#else}}
+    <li class="px-5 py-8 text-center text-sm text-muted"><IconUsers class="w-6 h-6 mx-auto mb-2 text-brand" />No one has portal access yet.</li>
+{{/each}}
+  </ul></div>
+{{/if}}
+
+{{#if tab is "services"}}
+  <div class="flex justify-end mb-3"><button type="button" class="tx-btn tx-btn-primary tx-btn-sm" onclick="{{ editSub(null) }}"><IconPlus /> Add a service</button></div>
+  <div class="tx-panel overflow-hidden"><div class="tx-table-wrap"><table class="tx-table">
+    <thead><tr><th>Service</th><th class="hidden md:table-cell">Price</th><th>Renews</th><th>Status</th></tr></thead>
+    <tbody>
+{{#each s in subscriptions}}
+      <tr data-href="1" onclick="{{ editSub(s) }}">
+        <td><p class="text-sm font-semibold">{{ s.name }}</p><p class="text-xs text-muted">{{ s.product_name ?? Fmt.label(s.kind) }}{{ s.plan ? " · " + s.plan : "" }}</p></td>
+        <td class="hidden md:table-cell text-sm tabular">{{ s.amount ? Fmt.money(s.amount, s.currency) + " / " + Fmt.label(s.cycle).toLowerCase() : "—" }}</td>
+        <td class="text-sm whitespace-nowrap">{{ Fmt.date(s.renews_on) }}{{#if s.days_left !== null and s.days_left <= 30}}<span class="{{ 'ml-2 text-xs font-semibold ' + (s.days_left < 0 ? 'text-coral' : 'text-peach') }}">{{ s.days_left < 0 ? "expired" : s.days_left + "d" }}</span>{{/if}}</td>
+        <td><StatusBadge value="{{ s.status }}" /></td>
+      </tr>
+{{#else}}
+      <tr><td colspan="4" class="text-center text-sm text-muted py-8">No services yet.</td></tr>
+{{/each}}
+    </tbody>
+  </table></div></div>
+{{/if}}
+
+{{#if tab is "tickets"}}
+  <div class="tx-panel overflow-hidden"><ul class="tx-list">
+{{#each t in tickets}}
+    <li><a href="{{ `/admin/tickets/${t.id}` }}" class="flex items-center justify-between gap-3 px-5 py-3.5 no-underline text-ink hover:bg-raised/60"><span class="min-w-0"><span class="block text-sm font-semibold truncate">{{ t.subject }}</span><span class="block text-xs text-muted">{{ t.ref }} · {{ t.product_name }} · {{ Fmt.dateTime(t.created_at) }}</span></span><span class="flex items-center gap-2">{{#if t.rating}}<span class="text-xs text-gold">★ {{ t.rating }}</span>{{/if}}<StatusBadge value="{{ t.status }}" /></span></a></li>
+{{#else}}
+    <li class="px-5 py-8 text-center text-sm text-muted">No tickets yet.</li>
+{{/each}}
+  </ul></div>
+{{/if}}
+
+{{#if tab is "projects"}}
+  <div class="flex justify-end mb-3"><button type="button" class="tx-btn tx-btn-primary tx-btn-sm" onclick="{{ projectOpen = true }}"><IconPlus /> New project</button></div>
+  <div class="grid gap-4 md:grid-cols-2">
+{{#each p in projects}}
+    <a href="{{ `/admin/projects/${p.id}` }}" class="tx-panel tx-hover p-5 no-underline text-ink">
+      <div class="flex items-start justify-between gap-2"><p class="font-semibold">{{ p.title }}</p><StatusBadge value="{{ p.status }}" /></div>
+      <div class="mt-4 flex items-center gap-3"><div class="tx-progress flex-1"><span style:width="{{ p.progress + '%' }}"></span></div><span class="text-xs text-muted tabular">{{ p.progress }}%</span></div>
+      <p class="mt-2 text-xs text-muted">Target {{ Fmt.date(p.due_on) }}</p>
+    </a>
+{{#else}}
+    <p class="text-sm text-muted">No projects yet.</p>
+{{/each}}
+  </div>
+{{/if}}
+
+{{#if tab is "billing"}}
+  <div class="flex justify-end gap-2 mb-3">
+    <a href="{{ `/admin/billing/new?kind=quote&company=${company.id}` }}" class="tx-btn tx-btn-outline tx-btn-sm"><IconPlus /> Quotation</a>
+    <a href="{{ `/admin/billing/new?kind=invoice&company=${company.id}` }}" class="tx-btn tx-btn-primary tx-btn-sm"><IconPlus /> Invoice</a>
+  </div>
+  <div class="tx-panel overflow-hidden"><div class="tx-table-wrap"><table class="tx-table">
+    <thead><tr><th>Number</th><th>Subject</th><th class="hidden md:table-cell">Due</th><th class="text-right">Total</th><th>Status</th></tr></thead>
+    <tbody>
+{{#each d in documents}}
+      <tr data-href="1" onclick="{{ window.location.href = `/admin/billing/${d.id}` }}">
+        <td class="font-mono text-sm font-semibold whitespace-nowrap">{{ d.number }}</td>
+        <td class="text-sm">{{ d.subject or "—" }}</td>
+        <td class="hidden md:table-cell text-sm text-muted">{{ Fmt.date(d.due_on) }}</td>
+        <td class="text-right tabular text-sm font-semibold">{{ Fmt.money(d.total, d.currency) }}</td>
+        <td><StatusBadge value="{{ d.overdue ? 'overdue' : d.status }}" /></td>
+      </tr>
+{{#else}}
+      <tr><td colspan="5" class="text-center text-sm text-muted py-8">No quotations or invoices yet.</td></tr>
+{{/each}}
+    </tbody>
+  </table></div></div>
+{{/if}}
+
+{{#if editOpen}}
+  <Modal title="Edit company" wide="{{ true }}" onClose="{{ () => editOpen = false }}">
+    <CompanyForm company="{{ company }}" staff="{{ staff }}" onSaved="{{ () => afterCompany() }}" onCancel="{{ () => editOpen = false }}" />
+  </Modal>
+{{/if}}
+{{#if personOpen}}
+  <Modal title="{{ 'Add someone to ' + company.name }}" subtitle="New people get an email to set their password. An existing client account is moved here." onClose="{{ () => personOpen = false }}">
+    <form onsubmit.prevent="{{ addPerson() }}" novalidate>
+      <div class="tx-field"><label class="tx-label" for="ap-name">Name</label><input id="ap-name" class="tx-input" bind:value="{{ person.name }}" /></div>
+      <div class="tx-field"><label class="tx-label" for="ap-email">Email</label><input id="ap-email" type="email" class="tx-input" bind:value="{{ person.email }}" /></div>
+      <div class="tx-field"><label class="tx-label" for="ap-title">Job title</label><input id="ap-title" class="tx-input" bind:value="{{ person.job_title }}" /></div>
+      <div class="flex justify-end gap-2"><button type="button" class="tx-btn tx-btn-ghost" onclick="{{ personOpen = false }}">Cancel</button><button type="submit" class="tx-btn tx-btn-primary" disabled="{{ busy }}">{{ busy ? "Adding…" : "Add and invite" }}</button></div>
+    </form>
+  </Modal>
+{{/if}}
+{{#if subOpen}}
+  <Modal title="{{ editingSub ? 'Edit service' : 'Add a service' }}" wide="{{ true }}" onClose="{{ () => subOpen = false }}">
+    <SubscriptionForm subscription="{{ editingSub }}" companyId="{{ company.id }}" companies="{{ [] }}" onSaved="{{ () => afterSub() }}" onCancel="{{ () => subOpen = false }}" />
+  </Modal>
+{{/if}}
+{{#if projectOpen}}
+  <Modal title="New project" wide="{{ true }}" onClose="{{ () => projectOpen = false }}">
+    <ProjectForm project="{{ null }}" companyId="{{ company.id }}" companies="{{ [] }}" staff="{{ staff }}" onSaved="{{ (p) => afterProject(p) }}" onCancel="{{ () => projectOpen = false }}" />
+  </Modal>
+{{/if}}
+{{/if}}
+</div>

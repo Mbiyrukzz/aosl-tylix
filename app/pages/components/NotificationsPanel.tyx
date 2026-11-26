@@ -1,0 +1,57 @@
+component NotificationsPanel
+
+import { IconCheckCheck, IconTicket, IconMessageCircle, IconReceipt, IconKanban, IconTarget, IconStar, IconBriefcase, IconUserAdd, IconInformationCircle, IconBellOff } from "tylix-icons"
+
+// The full notifications list (portal and console pages share it).
+
+uses
+  Live
+  Fmt
+
+state
+  filter: "all"
+
+computed
+  rows() {
+    if this.filter is "unread" {
+      return Live.notifications.filter(n => not n.read_at)
+    }
+    return Live.notifications
+  }
+
+onMount
+  async {
+    await Live.loadNotifications()
+  }
+
+template
+<div>
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <div class="tx-tabs w-fit">
+      <button type="button" class="tx-tab" class:tx-tab-active="{{ filter is 'all' }}" onclick="{{ filter = 'all' }}">All</button>
+      <button type="button" class="tx-tab" class:tx-tab-active="{{ filter is 'unread' }}" onclick="{{ filter = 'unread' }}">Unread <span class="count">{{ Live.unread }}</span></button>
+    </div>
+{{#if Live.unread}}<button type="button" class="tx-btn tx-btn-outline tx-btn-sm" onclick="{{ Live.markAllRead() }}"><IconCheckCheck /> Mark all read</button>{{/if}}
+  </div>
+{{#if rows.length}}
+  <div class="tx-panel overflow-hidden"><ul class="tx-list">
+{{#each n in rows}}
+    <li>
+      <button type="button" class="{{ 'w-full text-left px-5 py-4 flex gap-4 border-0 cursor-pointer hover:bg-raised/60 ' + (n.read_at ? 'bg-transparent' : 'bg-brand-soft/5') }}" onclick="{{ Live.open(n) }}">
+        <span class="{{ 'tx-stat-icon !w-10 !h-10 shrink-0 ' + (n.read_at ? 'bg-raised text-muted' : 'bg-brand-soft/10 text-brand') }}">
+{{#if n.kind is "ticket"}}<IconTicket />{{#else if n.kind is "message"}}<IconMessageCircle />{{#else if n.kind is "billing"}}<IconReceipt />{{#else if n.kind is "project"}}<IconKanban />{{#else if n.kind is "lead"}}<IconTarget />{{#else if n.kind is "rating"}}<IconStar />{{#else if n.kind is "career"}}<IconBriefcase />{{#else if n.kind is "signup"}}<IconUserAdd />{{#else}}<IconInformationCircle />{{/if}}
+        </span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm text-ink" class:font-semibold="{{ not n.read_at }}">{{ n.title }}</span>
+{{#if n.body}}<span class="block text-sm text-muted mt-0.5">{{ n.body }}</span>{{/if}}
+          <span class="block text-xs text-muted mt-1">{{ Fmt.dateTime(n.created_at) }} · {{ Fmt.ago(n.created_at) }}</span>
+        </span>
+{{#if not n.read_at}}<span class="w-2.5 h-2.5 rounded-full bg-brand mt-1.5 shrink-0"></span>{{/if}}
+      </button>
+    </li>
+{{/each}}
+  </ul></div>
+{{#else}}
+  <div class="tx-empty"><IconBellOff /><p class="font-semibold">{{ filter is "unread" ? "No unread notifications" : "No notifications yet" }}</p><p class="text-sm text-muted mt-1">Replies, updates and invoices will show up here.</p></div>
+{{/if}}
+</div>

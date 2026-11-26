@@ -1,279 +1,150 @@
 page Register
 
-import { IconCheck } from "tylix-icons"
-import OAuthButtons from "./components/OAuthButtons"
+import { IconArrowRight, IconMailOpen } from "tylix-icons"
 
-title "Create account"
+title "Create your client account · Ashmif"
 
 needs
   Auth
 
+uses
+  Live
+
 state
   name: ""
+  company: ""
+  phone: ""
   email: ""
   password: ""
-  confirmPassword: ""
-  agreedToTerms: false
+  agreed: false
   error: ""
   submitting: false
   registered: false
-  perks: [
-    "Auth, database and styling already wired",
-    "Publish posts with cover images",
-    "Generate new features with one command"
-  ]
 
 computed
-  passwordsMatch() {
-    return this.password is this.confirmPassword
-  }
-
-  passwordScore() {
-    if this.password.length < 8 {
+  strength() {
+    const p = this.password
+    if p.length < 8 {
       return 0
     }
-
-    const hasMixedCase = /[a-z]/.test(this.password) and /[A-Z]/.test(this.password)
-    const hasDigit = /[0-9]/.test(this.password)
-    const hasSymbol = /[^A-Za-z0-9]/.test(this.password)
-
     let score = 1
-    if hasMixedCase {
+    if /[a-z]/.test(p) and /[A-Z]/.test(p) {
       score += 1
     }
-    if hasDigit {
+    if /[0-9]/.test(p) {
       score += 1
     }
-    if hasSymbol {
+    if /[^A-Za-z0-9]/.test(p) or p.length >= 14 {
       score += 1
     }
     return score
   }
 
+  strengthLabel() {
+    return ["Too short", "Weak", "Fair", "Good", "Strong"][this.strength]
+  }
+
 action
-  setField(field, value) {
-    this[field] = value
-  }
-
-  toggleTerms() {
-    this.agreedToTerms = not this.agreedToTerms
-  }
-
   validate() {
-    const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.email)
-
-    if this.name.trim().length is 0 {
+    if not this.name.trim() {
       return "Enter your name."
     }
-    if not emailOk {
+    if not this.company.trim() {
+      return "Enter your company or organisation."
+    }
+    if not /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.email) {
       return "Enter a valid email address."
     }
     if this.password.length < 8 {
-      return "Password must be at least 8 characters."
+      return "Use at least 8 characters for your password."
     }
-    if not this.passwordsMatch {
-      return "Passwords don't match."
-    }
-    if not this.agreedToTerms {
-      return "Please agree to the Terms of Service to continue."
+    if not this.agreed {
+      return "Please accept the terms to continue."
     }
     return ""
-  }
-
-  messageFor(result) {
-    switch result.status {
-      case 409 {
-        return "An account with this email already exists."
-      }
-      case 422 {
-        const errors = result.data?.errors
-        if errors {
-          const firstField = Object.keys(errors)[0]
-          return errors[firstField][0]
-        }
-        return "Check your details and try again."
-      }
-      case 429 {
-        return "Too many attempts. Wait a minute and try again."
-      }
-      default {
-        return result.error ?? "Could not create account. Check your details and try again."
-      }
-    }
   }
 
   async submit() {
     if this.submitting {
       return null
     }
-
     this.error = this.validate()
     if this.error {
       return null
     }
-
     this.submitting = true
-
-    try {
-      const result = await useApi("/api/register", {
-        method: "POST",
-        body: { name: this.name, email: this.email, password: this.password }
-      })
-
-      if result.ok {
-        this.registered = true
-      } else {
-        this.error = this.messageFor(result)
-      }
-    } catch (err) {
-      this.error = "Network error. Check your connection and try again."
-    } finally {
-      this.submitting = false
+    const r = await useApi("/api/register", { method: "POST", body: { name: this.name, company: this.company, phone: this.phone, email: this.email, password: this.password } })
+    this.submitting = false
+    if r.ok {
+      this.registered = true
+    } else {
+      this.error = Live.errorOf(r, "Couldn't create the account. Check your details and try again.")
     }
   }
 
 onMount
   {
     if Auth.user {
-      window.location.href = "/dashboard"
+      window.location.href = Auth.home()
     }
   }
 
 template
-  <div class="flex items-center justify-center px-6 py-16">
-    <div class="tx-auth tx-glow">
-
-      <div class="tx-auth-aside">
-        <p class="tx-eyebrow mb-5">New account</p>
-        <h2 class="text-2xl font-semibold tracking-tight mb-3">Start building</h2>
-        <p class="text-sm text-muted mb-8 leading-relaxed">Create an account and ship your first page today.</p>
-        <ul class="space-y-3">
-{{#each perk in perks}}
-          <li class="flex items-start gap-2.5 text-sm text-soft">
-            <IconCheck class="w-4 h-4 mt-0.5 text-mint shrink-0" />
-            {{ perk }}
-          </li>
-{{/each}}
-        </ul>
-      </div>
-
-      <div class="tx-auth-form">
-        <div class="w-full max-w-sm">
+  <AuthFrame heading="Your account, your team, one portal" subheading="Create a client account for your company. Add teammates later, and we'll link your existing services.">
+    <div class="lg:hidden mb-8"><BrandLogo /></div>
 {{#if registered}}
-          <div class="w-11 h-11 rounded-lg bg-brand/10 flex items-center justify-center mb-5">
-            <IconCheck class="w-5 h-5 text-link" />
-          </div>
-          <h1 class="text-2xl font-semibold tracking-tight mb-2">Check your email</h1>
-          <p class="text-sm text-muted mb-8">
-            We sent a verification link to <span class="text-ink">{{ email }}</span>.
-            Click it, then log in.
-          </p>
-          <a href="/login" class="tx-btn tx-btn-primary tx-btn-block">
-            Go to login
-          </a>
+    <div class="text-center py-6">
+      <span class="mx-auto w-14 h-14 rounded-2xl bg-brand-soft/15 text-brand flex items-center justify-center"><IconMailOpen class="w-7 h-7" /></span>
+      <h1 class="mt-5 text-2xl font-bold tracking-tight">Check your inbox</h1>
+      <p class="text-sm text-muted mt-2 leading-relaxed">We sent a verification link to <strong class="text-ink">{{ email }}</strong>. Open it, then sign in to your portal.</p>
+      <a href="/login" class="tx-btn tx-btn-primary mt-7">Go to sign in <IconArrowRight /></a>
+    </div>
 {{#else}}
-          <h1 class="text-2xl font-semibold tracking-tight mb-1">Create your account</h1>
-          <p class="text-sm text-muted mb-8">Start building with Tylix in under a minute.</p>
-
+    <h1 class="text-2xl font-bold tracking-tight">Create a client account</h1>
+    <p class="text-sm text-muted mt-1 mb-7">Takes a minute. No card needed.</p>
 {{#if error}}
-          <div role="alert" aria-live="polite" class="tx-alert tx-alert-error mb-6">
-            <p class="text-sm">{{ error }}</p>
-          </div>
+    <div class="tx-alert tx-alert-error mb-5" role="alert"><p>{{ error }}</p></div>
 {{/if}}
-
-          <OAuthButtons returnTo="{{ '/dashboard' }}" />
-
-          <label for="name" class="tx-label">Name</label>
-          <input
-            id="name"
-            name="name"
-            autocomplete="name"
-            autofocus
-            placeholder="Jane Doe"
-            value="{{ name }}"
-            oninput="{{ setField('name', event.target.value) }}"
-            class="tx-input"
-          />
-
-          <label for="email" class="tx-label">Email</label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autocomplete="email"
-            placeholder="you@example.com"
-            value="{{ email }}"
-            oninput="{{ setField('email', event.target.value) }}"
-            class="tx-input"
-          />
-
-          <label for="password" class="tx-label">Password</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autocomplete="new-password"
-            placeholder="••••••••"
-            value="{{ password }}"
-            oninput="{{ setField('password', event.target.value) }}"
-            class="tx-input mb-2"
-          />
-
-{{#if password.length > 0}}
-          <div class="flex gap-1.5 mb-1.5">
-{{#each n in [0, 1, 2, 3]}}
-            <div class="{{ 'h-1 flex-1 rounded-full transition-colors ' + (n < passwordScore ? 'bg-brand' : 'bg-line ') }}"></div>
-{{/each}}
-          </div>
-          <p class="text-muted text-xs mb-4">{{ ['Too short', 'Weak', 'Okay', 'Good', 'Strong'][passwordScore] }}</p>
-{{#else}}
-          <p class="text-muted text-xs mb-4">At least 8 characters.</p>
-{{/if}}
-
-          <label for="confirmPassword" class="tx-label">Confirm password</label>
-          <input
-            id="confirmPassword"
-            name="confirmPassword"
-            type="password"
-            autocomplete="new-password"
-            placeholder="••••••••"
-            value="{{ confirmPassword }}"
-            oninput="{{ setField('confirmPassword', event.target.value) }}"
-            onkeydown="{{ event.key is 'Enter' and submit() }}"
-            class="tx-input mb-2"
-          />
-{{#if confirmPassword.length > 0 and not passwordsMatch}}
-          <p class="text-coral text-xs mb-3">Passwords don't match.</p>
-{{/if}}
-
-          <label class="flex items-start gap-2.5 text-sm text-muted my-5">
-            <input
-              type="checkbox"
-              checked="{{ agreedToTerms }}"
-              onclick="{{ toggleTerms() }}"
-              class="mt-0.5 rounded border-line-strong bg-canvas text-mint focus:ring-aqua"
-            />
-            <span>
-              I agree to the
-              <a href="https://tylix.dev/terms" class="tx-link">Terms of Service</a>
-              and
-              <a href="https://tylix.dev/privacy" class="tx-link">Privacy Policy</a>.
-            </span>
-          </label>
-
-          <button
-            onclick="{{ submit() }}"
-            disabled="{{ submitting }}"
-            class="tx-btn tx-btn-primary tx-btn-block"
-          >
-            {{ submitting ? 'Creating account…' : 'Sign up' }}
-          </button>
-
-          <p class="text-sm text-muted text-center mt-6">
-            Already have an account? <a href="/login" class="tx-link">Log in</a>
-          </p>
-{{/if}}
+    <OAuthButtons returnTo="{{ '/portal' }}" />
+    <form onsubmit.prevent="{{ submit() }}" novalidate>
+      <div class="grid sm:grid-cols-2 gap-x-3">
+        <div class="tx-field">
+          <label for="name" class="tx-label">Your name</label>
+          <input id="name" autocomplete="name" class="tx-input" placeholder="Amina Odhiambo" bind:value="{{ name }}" />
+        </div>
+        <div class="tx-field">
+          <label for="phone" class="tx-label">Phone <span class="text-muted font-normal">(optional)</span></label>
+          <input id="phone" type="tel" autocomplete="tel" class="tx-input" placeholder="+254 7…" bind:value="{{ phone }}" />
         </div>
       </div>
-    </div>
-  </div>
+      <div class="tx-field">
+        <label for="company" class="tx-label">Company or organisation</label>
+        <input id="company" autocomplete="organization" class="tx-input" placeholder="Coastline Clinics Ltd" bind:value="{{ company }}" />
+      </div>
+      <div class="tx-field">
+        <label for="email" class="tx-label">Work email</label>
+        <input id="email" type="email" autocomplete="email" class="tx-input" placeholder="you@company.co.ke" bind:value="{{ email }}" />
+      </div>
+      <div class="tx-field">
+        <label for="password" class="tx-label">Password</label>
+        <input id="password" type="password" autocomplete="new-password" class="tx-input" placeholder="At least 8 characters" bind:value="{{ password }}" />
+{{#if password}}
+        <div class="mt-2 flex items-center gap-2">
+          <div class="flex-1 grid grid-cols-4 gap-1">
+            <span class="h-1 rounded-full" class:bg-coral="{{ strength is 1 }}" class:bg-peach="{{ strength is 2 }}" class:bg-brand="{{ strength >= 3 }}" class:bg-line="{{ strength < 1 }}"></span>
+            <span class="h-1 rounded-full" class:bg-peach="{{ strength is 2 }}" class:bg-brand="{{ strength >= 3 }}" class:bg-line="{{ strength < 2 }}"></span>
+            <span class="h-1 rounded-full" class:bg-brand="{{ strength >= 3 }}" class:bg-line="{{ strength < 3 }}"></span>
+            <span class="h-1 rounded-full" class:bg-brand="{{ strength >= 4 }}" class:bg-line="{{ strength < 4 }}"></span>
+          </div>
+          <span class="text-[11px] text-muted w-16 text-right">{{ strengthLabel }}</span>
+        </div>
+{{/if}}
+      </div>
+      <label class="flex items-start gap-2 text-sm text-soft mb-6"><input type="checkbox" class="tx-check mt-0.5" bind:checked="{{ agreed }}" /> <span>I agree to Ashmif's terms of service and privacy policy.</span></label>
+      <button type="submit" class="tx-btn tx-btn-primary tx-btn-block tx-btn-lg" disabled="{{ submitting }}">
+{{#if submitting}}<span class="tx-spinner"></span> Creating account…{{#else}}Create account <IconArrowRight />{{/if}}
+      </button>
+    </form>
+    <p class="text-sm text-muted text-center mt-7">Already have an account? <a href="/login" class="tx-link">Sign in</a></p>
+{{/if}}
+  </AuthFrame>

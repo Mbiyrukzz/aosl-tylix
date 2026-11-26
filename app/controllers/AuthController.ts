@@ -15,6 +15,8 @@ import { User } from "../models/User.js";
 import { AuthSession } from "../models/AuthSession.js";
 import { PasswordReset } from "../models/PasswordReset.js";
 import { OAuthAccount } from "../models/OAuthAccount.js";
+import { Company } from "../models/Company.js";
+import { notifyStaff } from "../services/portal.js";
 import {
     createAuth,
     modelAdapter,
@@ -222,6 +224,25 @@ export class AuthController {
             return res.status(500).json({ error: "Failed to create user." });
         }
 
+        // AOS: every self-registered account is a client with its own
+        // company (staff can merge or re-tier it later in the console).
+        const companyName = String(req.body.company ?? "").trim().slice(0, 200) || `${String(req.body.name).trim()}'s company`;
+        const base = companyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 50) || "company";
+        const company = (await Company.create({
+            name: companyName,
+            slug: `${base}-${randomBytes(3).toString("hex")}`,
+            tier: "silver",
+            status: "onboarding",
+            email,
+            phone: String(req.body.phone ?? "").trim().slice(0, 40),
+        })) as { id: number };
+        await User.update(user.id, {
+            role: "client",
+            company_id: company.id,
+            phone: String(req.body.phone ?? "").trim().slice(0, 40) || null,
+        });
+        notifyStaff({ kind: "signup", title: `New client sign-up: ${companyName}`, body: `${user.name} · ${email}`, url: `/admin/clients/${company.id}` }).catch(() => {});
+
         await this.sendVerification(user);
 
         return res.status(201).json({
@@ -334,7 +355,12 @@ export class AuthController {
         if (!user) {
             return res.status(404).json({ error: "User not found." });
         }
-        return res.json(User.toSafeObject(user));
+        const company = user.company_id ? ((await Company.find(user.company_id)) as { id: number; name: string; tier: string } | null) : null;
+        return res.json({
+            ...User.toSafeObject(user),
+            company: company ? { id: company.id, name: company.name, tier: company.tier } : null,
+            is_staff: user.role === "staff" || user.role === "admin",
+        });
     }
 
     async verifyEmail(req: TylixRequest, res: TylixResponse) {

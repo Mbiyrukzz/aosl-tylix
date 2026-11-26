@@ -1,0 +1,85 @@
+page AdminClients
+
+import { IconPlus, IconSearch, IconBuildingOffice, IconUsers, IconTicket } from "tylix-icons"
+
+title "Companies · Ashmif console"
+
+uses
+  Fmt
+  Live
+
+state
+  companies: []
+  staff: []
+  loading: true
+  query: ""
+  tier: ""
+  newOpen: false
+
+computed
+  visible() {
+    const q = this.query.trim().toLowerCase()
+    return this.companies.filter(c => (not this.tier or c.tier is this.tier) and (not q or c.name.toLowerCase().includes(q) or (c.email ?? "").toLowerCase().includes(q) or (c.industry ?? "").toLowerCase().includes(q)))
+  }
+
+action
+  saved(c) {
+    window.location.href = `/admin/clients/${c.id}`
+  }
+
+onMount
+  async {
+    const [r, s] = await Promise.all([useApi("/api/admin/companies"), useApi("/api/admin/staff")])
+    if r.ok {
+      this.companies = r.data
+    }
+    if s.ok {
+      this.staff = s.data
+    }
+    this.loading = false
+    if new URLSearchParams(window.location.search).get("new") {
+      this.newOpen = true
+    }
+  }
+
+template
+<div>
+  <PageHeader title="Companies" subtitle="Every client, their tier, people and balance.">
+    <button slot="actions" type="button" class="tx-btn tx-btn-primary" onclick="{{ newOpen = true }}"><IconPlus /> Add company</button>
+  </PageHeader>
+  <div class="flex flex-col sm:flex-row gap-2 mb-4">
+    <div class="tx-tabs w-fit">
+      <button type="button" class="tx-tab" class:tx-tab-active="{{ tier is '' }}" onclick="{{ tier = '' }}">All <span class="count">{{ companies.length }}</span></button>
+      <button type="button" class="tx-tab" class:tx-tab-active="{{ tier is 'platinum' }}" onclick="{{ tier = 'platinum' }}">Platinum</button>
+      <button type="button" class="tx-tab" class:tx-tab-active="{{ tier is 'gold' }}" onclick="{{ tier = 'gold' }}">Gold</button>
+      <button type="button" class="tx-tab" class:tx-tab-active="{{ tier is 'silver' }}" onclick="{{ tier = 'silver' }}">Silver</button>
+    </div>
+    <div class="relative sm:ml-auto sm:w-72"><IconSearch class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" /><input class="tx-input !pl-10 !rounded-full !py-2 text-sm" placeholder="Search companies" aria-label="Search companies" bind:value="{{ query }}" /></div>
+  </div>
+{{#if loading}}
+  <div class="tx-skeleton h-80"></div>
+{{#else if visible.length}}
+  <div class="tx-panel overflow-hidden"><div class="tx-table-wrap"><table class="tx-table">
+    <thead><tr><th>Company</th><th>Tier</th><th class="hidden md:table-cell">People</th><th class="hidden md:table-cell">Open tickets</th><th class="hidden lg:table-cell">Services</th><th class="text-right">Balance</th></tr></thead>
+    <tbody>
+{{#each c in visible}}
+      <tr data-href="1" onclick="{{ window.location.href = `/admin/clients/${c.id}` }}">
+        <td class="min-w-[12rem]"><div class="flex items-center gap-3"><span class="product-icon !w-9 !h-9 !rounded-xl bg-raised text-muted"><IconBuildingOffice class="w-4 h-4" /></span><div><p class="font-semibold text-sm">{{ c.name }}</p><p class="text-xs text-muted">{{ c.industry ?? "" }}{{ c.industry and c.email ? " · " : "" }}{{ c.email ?? "" }}</p></div></div></td>
+        <td><div class="flex flex-col gap-1 items-start"><StatusBadge value="{{ c.tier }}" />{{#if c.status is not "active"}}<StatusBadge value="{{ c.status }}" />{{/if}}</div></td>
+        <td class="hidden md:table-cell text-sm"><span class="inline-flex items-center gap-1.5"><IconUsers class="w-3.5 h-3.5 text-muted" /> {{ c.people }}</span></td>
+        <td class="hidden md:table-cell text-sm"><span class="{{ 'inline-flex items-center gap-1.5 ' + (c.open_tickets ? 'text-sky font-semibold' : 'text-muted') }}"><IconTicket class="w-3.5 h-3.5" /> {{ c.open_tickets }}</span></td>
+        <td class="hidden lg:table-cell text-sm">{{ c.services }}</td>
+        <td class="text-right tabular text-sm font-semibold" class:text-peach="{{ c.balance > 0 }}">{{ c.balance ? Fmt.money(c.balance) : "—" }}</td>
+      </tr>
+{{/each}}
+    </tbody>
+  </table></div></div>
+{{#else}}
+  <div class="tx-empty"><IconBuildingOffice /><p class="font-semibold">No companies match</p></div>
+{{/if}}
+{{#if newOpen}}
+  <Modal title="Add a company" subtitle="Then invite its people from the company page." wide="{{ true }}" onClose="{{ () => newOpen = false }}">
+    <CompanyForm company="{{ null }}" staff="{{ staff }}" onSaved="{{ (c) => saved(c) }}" onCancel="{{ () => newOpen = false }}" />
+  </Modal>
+{{/if}}
+</div>

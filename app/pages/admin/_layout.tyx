@@ -1,0 +1,33 @@
+component AdminLayout
+
+// The staff console. Only staff and admins get in; clients go back to
+// their portal.
+
+uses
+  Auth
+  Live
+
+onMount
+  async {
+    const me = Auth.user ?? (await Auth.refresh())
+    if not me {
+      window.location.href = "/login?next=" + encodeURIComponent(window.location.pathname + window.location.search)
+      return null
+    }
+    if me.role is not "staff" and me.role is not "admin" {
+      window.location.href = "/portal"
+      return null
+    }
+    Live.start(true)
+  }
+
+template
+  <div class="app">
+    <AppSidebar area="admin" />
+    <div class="app-column">
+      <AppTopbar area="admin" />
+      <main id="main" class="app-main"><div class="app-page" data-tylix-slot="true"></div></main>
+    </div>
+    <CommandPalette area="admin" />
+    <Toast />
+  </div>

@@ -1,0 +1,41 @@
+component ThemeSwitch
+
+import { IconSun, IconMoon, IconMonitor } from "tylix-icons"
+
+// One button that cycles dark → light → system. full shows all three
+// as a segmented control (settings page).
+
+props
+  full: Boolean
+
+uses
+  Theme
+
+action
+  cycle() {
+    const next = { dark: "light", light: "system", system: "dark" }
+    Theme.set(String(Reflect.get(next, Theme.choice) ?? "dark"))
+  }
+
+  label() {
+    return String(Reflect.get({ dark: "Dark theme", light: "Light theme", system: "Follow device" }, Theme.choice) ?? "Theme")
+  }
+
+template
+{{#if full}}
+  <div class="tx-tabs w-fit" role="radiogroup" aria-label="Theme">
+    <button type="button" role="radio" aria-checked="{{ Theme.choice is 'light' }}" class="tx-tab" class:tx-tab-active="{{ Theme.choice is 'light' }}" onclick="{{ Theme.set('light') }}"><IconSun class="w-4 h-4" /> Light</button>
+    <button type="button" role="radio" aria-checked="{{ Theme.choice is 'dark' }}" class="tx-tab" class:tx-tab-active="{{ Theme.choice is 'dark' }}" onclick="{{ Theme.set('dark') }}"><IconMoon class="w-4 h-4" /> Dark</button>
+    <button type="button" role="radio" aria-checked="{{ Theme.choice is 'system' }}" class="tx-tab" class:tx-tab-active="{{ Theme.choice is 'system' }}" onclick="{{ Theme.set('system') }}"><IconMonitor class="w-4 h-4" /> Device</button>
+  </div>
+{{#else}}
+  <button type="button" class="tx-icon-btn" onclick="{{ cycle() }}" title="{{ label() }}" aria-label="{{ label() + ', change theme' }}">
+{{#if Theme.choice is "system"}}
+    <IconMonitor />
+{{#else if Theme.mode is "dark"}}
+    <IconMoon />
+{{#else}}
+    <IconSun />
+{{/if}}
+  </button>
+{{/if}}

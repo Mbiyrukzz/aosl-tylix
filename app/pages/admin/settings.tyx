@@ -1,0 +1,9 @@
+page AdminSettings
+
+title "Settings · Ashmif console"
+
+template
+<div>
+  <PageHeader title="Profile & security" subtitle="How clients see you, your alerts and your devices." />
+  <SettingsPanel />
+</div>

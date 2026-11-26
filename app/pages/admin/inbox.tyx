@@ -1,0 +1,239 @@
+page AdminInbox
+
+import { IconSend, IconTicket, IconSearch, IconInbox, IconArrowLeft, IconMail, IconPhone, IconBuildingOffice, IconMapPin, IconExternalLink } from "tylix-icons"
+
+title "Inbox · Ashmif console"
+
+uses
+  Fmt
+  Live
+  Catalog
+
+state
+  threads: []
+  loading: true
+  query: ""
+  current: 0
+  thread: null
+  threadLoading: false
+  draft: ""
+  sending: false
+  convertOpen: false
+  convert: { subject: "", product: "", priority: "normal" }
+  canned: [
+    "Thanks for reaching out! Looking into this now and I'll update you shortly.",
+    "Could you share a screenshot of what you're seeing? It'll help us fix it faster.",
+    "This is fixed now. Could you refresh and confirm it's working on your side?",
+    "I've opened a ticket so we can track this properly. You'll get updates there."
+  ]
+
+computed
+  visible() {
+    const q = this.query.trim().toLowerCase()
+    return this.threads.filter(t => not q or t.client.name.toLowerCase().includes(q) or (t.company?.name ?? "").toLowerCase().includes(q) or t.last_body.toLowerCase().includes(q))
+  }
+
+action
+  async loadThreads() {
+    const r = await useApi("/api/admin/inbox")
+    if r.ok {
+      this.threads = r.data
+    }
+    this.loading = false
+  }
+
+  async open(clientId) {
+    this.current = clientId
+    this.threadLoading = not this.thread or this.thread.client.id is not clientId
+    const r = await useApi(`/api/admin/inbox/${clientId}`)
+    if r.ok {
+      this.thread = r.data
+      const t = this.threads.find(x => x.client_id is clientId)
+      if t {
+        t.unread = 0
+      }
+      window.history.replaceState(null, "", `/admin/inbox?client=${clientId}`)
+      this.scrollDown()
+      Live.tick()
+    }
+    this.threadLoading = false
+  }
+
+  scrollDown() {
+    setTimeout(() => {
+      const el = document.getElementById("inbox-scroll")
+      if el {
+        el.scrollTop = el.scrollHeight
+      }
+    }, 40)
+  }
+
+  async send() {
+    const body = this.draft.trim()
+    if not body or this.sending {
+      return null
+    }
+    this.sending = true
+    const r = await useApi(`/api/admin/inbox/${this.current}`, { method: "POST", body: { body } })
+    this.sending = false
+    if r.ok {
+      this.thread.messages = [...this.thread.messages, r.data]
+      this.draft = ""
+      this.scrollDown()
+      this.loadThreads()
+    } else {
+      Live.say(Live.errorOf(r, "Couldn't send."))
+    }
+  }
+
+  onEnter(e) {
+    if e.shiftKey {
+      return null
+    }
+    e.preventDefault()
+    this.send()
+  }
+
+  startConvert() {
+    const last = [...this.thread.messages].reverse().find(m => m.direction is "in")
+    this.convert = { subject: last ? last.body.slice(0, 80) : "", product: "", priority: "normal" }
+    this.convertOpen = true
+  }
+
+  async doConvert() {
+    const r = await useApi(`/api/admin/inbox/${this.current}/ticket`, { method: "POST", body: this.convert })
+    if r.ok {
+      this.convertOpen = false
+      Live.say(`Ticket ${r.data.ref} opened`)
+      await this.open(this.current)
+    } else {
+      Live.say(Live.errorOf(r, "Couldn't open a ticket."))
+    }
+  }
+
+onMount
+  async {
+    await this.loadThreads()
+    const id = Number(new URLSearchParams(window.location.search).get("client"))
+    if id {
+      await this.open(id)
+    } else if this.threads.length and window.innerWidth >= 1024 {
+      await this.open(this.threads[0].client_id)
+    }
+    setInterval(async () => {
+      if document.hidden {
+        return null
+      }
+      await this.loadThreads()
+      if this.current and not this.sending {
+        const r = await useApi(`/api/admin/inbox/${this.current}`)
+        if r.ok and r.data.messages.length is not this.thread.messages.length {
+          this.thread = r.data
+          this.scrollDown()
+        }
+      }
+    }, 10000)
+  }
+
+template
+<div>
+  <PageHeader title="Inbox" subtitle="Quick messages from clients. Reply here; they get it in the portal, by email and as a notification." />
+  <div class="tx-panel overflow-hidden grid lg:grid-cols-[22rem_1fr] h-[calc(100dvh-14rem)] min-h-[32rem]">
+    <aside class="border-r border-line flex flex-col min-h-0" class:hidden="{{ current and window.innerWidth < 1024 }}">
+      <div class="p-3 border-b border-line">
+        <div class="relative"><IconSearch class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" /><input class="tx-input !pl-9 !rounded-full text-sm" placeholder="Search conversations" aria-label="Search conversations" bind:value="{{ query }}" /></div>
+      </div>
+      <ul class="flex-1 overflow-y-auto">
+{{#if loading}}
+        <li class="p-4 space-y-3"><div class="tx-skeleton h-14"></div><div class="tx-skeleton h-14"></div></li>
+{{/if}}
+{{#each t in visible}}
+        <li>
+          <button type="button" class="{{ 'w-full text-left px-4 py-3.5 flex gap-3 border-0 border-b border-line cursor-pointer ' + (current is t.client_id ? 'bg-brand-soft/10' : 'bg-transparent hover:bg-raised/60') }}" onclick="{{ open(t.client_id) }}">
+            <Avatar name="{{ t.client.name }}" url="{{ t.client.avatar_url }}" size="{{ 38 }}" />
+            <span class="min-w-0 flex-1">
+              <span class="flex items-center justify-between gap-2"><span class="text-sm truncate" class:font-bold="{{ t.unread > 0 }}" class:font-medium="{{ t.unread is 0 }}">{{ t.client.name }}</span><span class="text-[11px] text-muted shrink-0">{{ Fmt.ago(t.last_at) }}</span></span>
+              <span class="block text-xs text-muted truncate">{{ t.company?.name ?? "No company" }}</span>
+              <span class="flex items-center gap-2 mt-1"><span class="text-xs truncate flex-1" class:text-ink="{{ t.unread > 0 }}" class:text-muted="{{ t.unread is 0 }}">{{ t.last_direction is "out" ? "You: " : "" }}{{ t.last_body }}</span>{{#if t.unread}}<span class="app-nav-count">{{ t.unread }}</span>{{/if}}</span>
+            </span>
+          </button>
+        </li>
+{{#else}}
+{{#if not loading}}
+        <li class="p-8 text-center text-sm text-muted"><IconInbox class="w-6 h-6 mx-auto mb-2 text-brand" />No conversations yet.</li>
+{{/if}}
+{{/each}}
+      </ul>
+    </aside>
+
+    <section class="flex flex-col min-h-0 min-w-0" class:hidden="{{ not current and window.innerWidth < 1024 }}">
+{{#if not thread}}
+      <div class="flex-1 flex items-center justify-center text-sm text-muted p-8 text-center">Pick a conversation to read and reply.</div>
+{{#else}}
+      <header class="px-4 sm:px-5 py-3 border-b border-line flex items-center gap-3">
+        <button type="button" class="tx-icon-btn lg:hidden" aria-label="Back to conversations" onclick="{{ current = 0 }}"><IconArrowLeft /></button>
+        <Avatar name="{{ thread.client.name }}" url="{{ thread.client.avatar_url }}" size="{{ 38 }}" />
+        <div class="min-w-0 flex-1">
+          <p class="font-semibold truncate">{{ thread.client.name }} {{#if thread.company}}<StatusBadge value="{{ thread.company.tier }}" />{{/if}}</p>
+          <p class="text-xs text-muted truncate flex flex-wrap gap-x-3"><span class="flex items-center gap-1"><IconBuildingOffice class="w-3 h-3" />{{ thread.company?.name ?? "No company" }}</span><a href="{{ 'mailto:' + thread.client.email }}" class="flex items-center gap-1 text-muted no-underline hover:text-ink"><IconMail class="w-3 h-3" />{{ thread.client.email }}</a>{{#if thread.client.phone}}<a href="{{ 'tel:' + thread.client.phone }}" class="flex items-center gap-1 text-muted no-underline hover:text-ink"><IconPhone class="w-3 h-3" />{{ thread.client.phone }}</a>{{/if}}</p>
+        </div>
+        <button type="button" class="tx-btn tx-btn-outline tx-btn-sm" onclick="{{ startConvert() }}"><IconTicket /> <span class="hidden sm:inline">Make a ticket</span></button>
+{{#if thread.company}}<a href="{{ `/admin/clients/${thread.company.id}` }}" class="tx-icon-btn hidden sm:inline-flex" title="Open company" aria-label="Open company"><IconExternalLink /></a>{{/if}}
+      </header>
+{{#if thread.open_tickets.length}}
+      <div class="px-4 sm:px-5 py-2 border-b border-line bg-raised/40 flex gap-2 overflow-x-auto text-xs">
+        <span class="text-muted shrink-0 py-1">Open tickets:</span>
+{{#each t in thread.open_tickets}}<a href="{{ `/admin/tickets/${t.id}` }}" class="tx-badge shrink-0 no-underline hover:border-brand-soft/40">{{ t.ref }} · {{ t.subject.slice(0, 28) }}</a>{{/each}}
+      </div>
+{{/if}}
+      <div id="inbox-scroll" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3">
+{{#if threadLoading}}
+        <div class="tx-skeleton h-12 w-2/3"></div>
+{{/if}}
+{{#each m in thread.messages}}
+{{#if m.direction is "in"}}
+        <div class="flex gap-2.5">
+          <Avatar name="{{ thread.client.name }}" url="{{ thread.client.avatar_url }}" size="{{ 28 }}" />
+          <div class="min-w-0 max-w-[80%]">
+            <div class="bubble bubble-them !max-w-full">{{ m.body }}</div>
+            <span class="block text-[10px] text-muted mt-1 ml-1">{{ Fmt.dateTime(m.created_at) }}{{#if m.page_url}} · <IconMapPin class="inline w-2.5 h-2.5" /> {{ m.page_url }}{{/if}}{{#if m.ticket_id}} · in ticket{{/if}}</span>
+          </div>
+        </div>
+{{#else}}
+        <div class="flex gap-2.5 justify-end">
+          <div class="flex flex-col items-end min-w-0 max-w-[80%]">
+            <div class="bubble bubble-me !max-w-full">{{ m.body }}</div>
+            <span class="text-[10px] text-muted mt-1 mr-1">{{ m.author?.name ?? "Ashmif" }} · {{ Fmt.dateTime(m.created_at) }}</span>
+          </div>
+          <Avatar name="{{ m.author?.name ?? 'Ashmif' }}" url="{{ m.author?.avatar_url }}" size="{{ 28 }}" staff="{{ true }}" />
+        </div>
+{{/if}}
+{{/each}}
+      </div>
+      <div class="border-t border-line p-3 sm:p-4">
+        <div class="flex gap-1.5 overflow-x-auto pb-2 mb-1">
+{{#each c in canned}}
+          <button type="button" class="tx-badge shrink-0 cursor-pointer hover:border-brand-soft/40 max-w-[16rem] truncate" title="{{ c }}" onclick="{{ draft = c }}">{{ c.slice(0, 38) }}…</button>
+{{/each}}
+        </div>
+        <form class="flex items-end gap-2" onsubmit.prevent="{{ send() }}">
+          <label for="inbox-input" class="sr-only">Reply</label>
+          <textarea id="inbox-input" rows="2" class="tx-input !rounded-2xl !min-h-0 text-sm" placeholder="{{ 'Reply to ' + thread.client.name + '… (Enter to send)' }}" bind:value="{{ draft }}" onkeydown.enter="{{ onEnter($event) }}"></textarea>
+          <button type="submit" class="tx-btn tx-btn-primary !p-0 w-12 h-12 shrink-0" aria-label="Send" disabled="{{ sending or not draft.trim() }}">{{#if sending}}<span class="tx-spinner"></span>{{#else}}<IconSend />{{/if}}</button>
+        </form>
+      </div>
+{{/if}}
+    </section>
+  </div>
+
+{{#if convertOpen}}
+  <Modal title="Turn this conversation into a ticket" subtitle="The client's recent messages become the description. You'll own it." onClose="{{ () => convertOpen = false }}">
+    <div class="tx-field"><label class="tx-label" for="cv-subject">Subject</label><input id="cv-subject" class="tx-input" bind:value="{{ convert.subject }}" /></div>
+    <div class="grid sm:grid-cols-2 gap-x-3">
+      <div class="tx-field"><label class="tx-label" for="cv-prod">Product</label><select id="cv-prod" class="tx-input" bind:value="{{ convert.product }}"><option value="">General</option>{{#each t in Catalog.topics()}}<option value="{{ t.value }}">{{ t.label }}</option>{{/each}}</select></div>
+      <div class="tx-field"><label class="tx-label" for="cv-pri">Priority</label><select id="cv-pri" class="tx-input" bind:value="{{ convert.priority }}"><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select></div>
+    </div>
+    <div class="flex justify-end gap-2"><button type="button" class="tx-btn tx-btn-ghost" onclick="{{ convertOpen = false }}">Cancel</button><button type="button" class="tx-btn tx-btn-primary" onclick="{{ doConvert() }}"><IconTicket /> Open ticket</button></div>
+  </Modal>
+{{/if}}
+</div>

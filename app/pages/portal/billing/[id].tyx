@@ -1,0 +1,177 @@
+page PortalDocument
+
+import { IconPrinter, IconCheckCircle, IconXCircle, IconMobileMoney, IconReceipt, IconCopy, IconDocumentText } from "tylix-icons"
+
+props
+  id: string
+
+uses
+  Fmt
+  Live
+
+state
+  doc: null
+  company: null
+  paybill: ""
+  loading: true
+  isMissing: false
+  showReceipt: false
+  payOpen: false
+  pay: { method: "mpesa", reference: "", amount: "" }
+  respondOpen: ""
+  note: ""
+  busy: false
+  error: ""
+  notified: false
+
+action
+  async load() {
+    const r = await useApi(`/api/portal/billing/${this.id}`)
+    if r.ok {
+      this.doc = r.data.document
+      this.company = r.data.company
+      this.paybill = r.data.paybill
+      this.pay.amount = String(r.data.document.balance)
+      document.title = `${r.data.document.number} · Ashmif portal`
+    } else {
+      this.isMissing = true
+    }
+    this.loading = false
+  }
+
+  print() {
+    window.print()
+  }
+
+  copy(text) {
+    navigator.clipboard.writeText(String(text))
+    Live.say("Copied")
+  }
+
+  async sendPayment() {
+    this.error = ""
+    this.busy = true
+    const r = await useApi(`/api/portal/billing/${this.id}/payment-notice`, { method: "POST", body: this.pay })
+    this.busy = false
+    if r.ok {
+      this.payOpen = false
+      this.notified = true
+      Live.say("Thanks! We'll confirm your payment shortly.")
+    } else {
+      this.error = Live.errorOf(r, "Couldn't send. Try again.")
+    }
+  }
+
+  async respond() {
+    this.busy = true
+    const r = await useApi(`/api/portal/billing/${this.id}/respond`, { method: "POST", body: { decision: this.respondOpen, note: this.note } })
+    this.busy = false
+    if r.ok {
+      this.respondOpen = ""
+      Live.say(r.data.status is "accepted" ? "Quotation accepted. We'll be in touch." : "Quotation declined.")
+      await this.load()
+    }
+  }
+
+onMount
+  async {
+    this.showReceipt = new URLSearchParams(window.location.search).get("receipt") is "1"
+    await this.load()
+  }
+
+template
+<div>
+{{#if loading}}
+  <div class="tx-skeleton h-[36rem]"></div>
+{{#else if isMissing}}
+  <div class="tx-empty"><p class="font-semibold">Document not found</p><a href="/portal/billing" class="tx-btn tx-btn-primary tx-btn-sm mt-4">Back to billing</a></div>
+{{#else}}
+  <div class="no-print">
+    <PageHeader title="{{ (doc.kind is 'quote' ? 'Quotation ' : 'Invoice ') + doc.number }}" subtitle="{{ doc.subject }}" back="/portal/billing" backLabel="Billing">
+      <span slot="actions" class="flex flex-wrap gap-2 items-center">
+        <StatusBadge value="{{ doc.overdue ? 'overdue' : doc.status }}" dot="{{ true }}" />
+        <button type="button" class="tx-btn tx-btn-outline tx-btn-sm" onclick="{{ print() }}"><IconPrinter /> Print / PDF</button>
+      </span>
+    </PageHeader>
+  </div>
+
+  <div class="grid gap-6 xl:grid-cols-[1fr_20rem]">
+    <div class="min-w-0">
+{{#if doc.receipt_number}}
+      <div class="tx-tabs w-fit mb-4 no-print">
+        <button type="button" class="tx-tab" class:tx-tab-active="{{ not showReceipt }}" onclick="{{ showReceipt = false }}"><IconDocumentText class="w-4 h-4" /> Invoice</button>
+        <button type="button" class="tx-tab" class:tx-tab-active="{{ showReceipt }}" onclick="{{ showReceipt = true }}"><IconReceipt class="w-4 h-4" /> Receipt</button>
+      </div>
+{{/if}}
+      <DocumentPaper doc="{{ doc }}" company="{{ company }}" paybill="{{ paybill }}" receipt="{{ showReceipt and Boolean(doc.receipt_number) }}" />
+    </div>
+
+    <aside class="space-y-4 no-print">
+{{#if doc.kind is "invoice" and (doc.status is "sent" or doc.status is "partial")}}
+      <div class="tx-panel p-5">
+        <p class="text-sm text-muted">Balance due</p>
+        <p class="text-3xl font-bold tracking-tight tabular mt-1">{{ Fmt.money(doc.balance, doc.currency) }}</p>
+        <p class="text-sm mt-1" class:text-coral="{{ doc.overdue }}" class:text-muted="{{ not doc.overdue }}">{{ doc.overdue ? "Overdue since " : "Due " }}{{ Fmt.date(doc.due_on) }}</p>
+{{#if paybill}}
+        <div class="mt-5 tx-well p-4 space-y-2 text-sm">
+          <p class="font-semibold flex items-center gap-2"><IconMobileMoney class="w-4 h-4 text-brand" /> M-Pesa</p>
+          <div class="flex items-center justify-between"><span class="text-muted">Paybill</span><button type="button" class="font-mono font-semibold bg-transparent border-0 cursor-pointer text-ink inline-flex items-center gap-1.5" onclick="{{ copy(paybill) }}">{{ paybill }} <IconCopy class="w-3.5 h-3.5 text-muted" /></button></div>
+          <div class="flex items-center justify-between"><span class="text-muted">Account</span><button type="button" class="font-mono font-semibold bg-transparent border-0 cursor-pointer text-ink inline-flex items-center gap-1.5" onclick="{{ copy(doc.number) }}">{{ doc.number }} <IconCopy class="w-3.5 h-3.5 text-muted" /></button></div>
+        </div>
+{{/if}}
+{{#if notified}}
+        <div class="tx-alert tx-alert-success mt-4"><IconCheckCircle /><p>Payment notice sent. You'll get a receipt once we confirm it.</p></div>
+{{#else}}
+        <button type="button" class="tx-btn tx-btn-primary tx-btn-block mt-4" onclick="{{ payOpen = true }}"><IconCheckCircle /> I've paid</button>
+{{/if}}
+      </div>
+{{/if}}
+{{#if doc.kind is "quote" and doc.status is "sent"}}
+      <div class="tx-panel p-5">
+        <p class="font-semibold">Ready to go ahead?</p>
+        <p class="text-sm text-muted mt-1">Accept and we'll schedule the work and send the invoice.</p>
+        <div class="mt-4 grid gap-2">
+          <button type="button" class="tx-btn tx-btn-primary" onclick="{{ respondOpen = 'accept' }}"><IconCheckCircle /> Accept quotation</button>
+          <button type="button" class="tx-btn tx-btn-ghost" onclick="{{ respondOpen = 'decline' }}"><IconXCircle /> Decline</button>
+        </div>
+      </div>
+{{/if}}
+      <div class="tx-panel p-5 text-sm space-y-2">
+        <p class="font-semibold">Questions about this {{ doc.kind is "quote" ? "quotation" : "invoice" }}?</p>
+        <p class="text-muted">Message our accounts team and mention {{ doc.number }}.</p>
+        <button type="button" class="tx-btn tx-btn-outline tx-btn-sm mt-2" onclick="{{ Live.openSupport() }}">Message us</button>
+      </div>
+    </aside>
+  </div>
+
+{{#if payOpen}}
+  <Modal title="Tell us you've paid" subtitle="{{ doc.number + ' · ' + Fmt.money(doc.balance, doc.currency) }}" onClose="{{ () => payOpen = false }}">
+{{#if error}}<div class="tx-alert tx-alert-error mb-4" role="alert"><p>{{ error }}</p></div>{{/if}}
+    <div class="tx-field">
+      <span class="tx-label">How did you pay?</span>
+      <div class="tx-tabs w-fit">
+        <button type="button" class="tx-tab" class:tx-tab-active="{{ pay.method is 'mpesa' }}" onclick="{{ pay.method = 'mpesa' }}">M-Pesa</button>
+        <button type="button" class="tx-tab" class:tx-tab-active="{{ pay.method is 'bank' }}" onclick="{{ pay.method = 'bank' }}">Bank transfer</button>
+        <button type="button" class="tx-tab" class:tx-tab-active="{{ pay.method is 'cheque' }}" onclick="{{ pay.method = 'cheque' }}">Cheque</button>
+      </div>
+    </div>
+    <div class="tx-field">
+      <label class="tx-label" for="p-ref">{{ pay.method is "mpesa" ? "M-Pesa code" : "Reference" }}</label>
+      <input id="p-ref" class="tx-input font-mono uppercase" placeholder="{{ pay.method is 'mpesa' ? 'e.g. SKL4XY12ZQ' : 'Transfer or cheque number' }}" bind:value="{{ pay.reference }}" />
+    </div>
+    <div class="tx-field">
+      <label class="tx-label" for="p-amt">Amount paid</label>
+      <input id="p-amt" class="tx-input" inputmode="decimal" bind:value="{{ pay.amount }}" />
+    </div>
+    <div class="flex justify-end gap-2 mt-2"><button type="button" class="tx-btn tx-btn-ghost" onclick="{{ payOpen = false }}">Cancel</button><button type="button" class="tx-btn tx-btn-primary" disabled="{{ busy }}" onclick="{{ sendPayment() }}">{{ busy ? "Sending…" : "Send to accounts" }}</button></div>
+  </Modal>
+{{/if}}
+{{#if respondOpen}}
+  <Modal title="{{ respondOpen is 'accept' ? 'Accept quotation' : 'Decline quotation' }}" subtitle="{{ doc.number + ' · ' + Fmt.money(doc.total, doc.currency) }}" onClose="{{ () => respondOpen = '' }}">
+    <label class="tx-label" for="q-note">{{ respondOpen is "accept" ? "Anything we should know? (optional)" : "What would change your mind? (optional)" }}</label>
+    <textarea id="q-note" rows="3" class="tx-input" bind:value="{{ note }}"></textarea>
+    <div class="flex justify-end gap-2 mt-5"><button type="button" class="tx-btn tx-btn-ghost" onclick="{{ respondOpen = '' }}">Cancel</button><button type="button" class="{{ 'tx-btn ' + (respondOpen is 'accept' ? 'tx-btn-primary' : 'tx-btn-danger') }}" disabled="{{ busy }}" onclick="{{ respond() }}">{{ respondOpen is "accept" ? "Accept" : "Decline" }}</button></div>
+  </Modal>
+{{/if}}
+{{/if}}
+</div>

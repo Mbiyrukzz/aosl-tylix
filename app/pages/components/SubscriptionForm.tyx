@@ -1,0 +1,87 @@
+component SubscriptionForm
+
+// Add or edit a client's service (console). companyId fixes the company;
+// otherwise the form shows a company picker (companies prop).
+
+props
+  subscription: Object
+  companyId: Number
+  companies: any[]
+  onSaved: Function
+  onCancel: Function
+
+uses
+  Live
+  Catalog
+
+state
+  form: { company_id: "", product: "", name: "", kind: "subscription", plan: "", amount: 0, currency: "KES", cycle: "yearly", starts_on: "", renews_on: "", status: "active", auto_renew: false, reference: "", notes: "" }
+  saving: false
+  error: ""
+
+action
+  async save() {
+    this.error = ""
+    this.saving = true
+    const s = this.subscription
+    const r = s ? await useApi(`/api/admin/subscriptions/${s.id}`, { method: "PUT", body: this.form }) : await useApi("/api/admin/subscriptions", { method: "POST", body: this.form })
+    this.saving = false
+    if r.ok {
+      this.onSaved(r.data)
+    } else {
+      this.error = Live.errorOf(r, "Couldn't save.")
+    }
+  }
+
+  async remove() {
+    if not confirm("Delete this service from the client's account?") {
+      return null
+    }
+    await useApi(`/api/admin/subscriptions/${this.subscription.id}`, { method: "DELETE" })
+    this.onSaved(null)
+  }
+
+  autoName() {
+    if not this.form.name and this.form.product {
+      const p = Catalog.find(this.form.product)
+      if p {
+        this.form.name = p.name
+      }
+    }
+  }
+
+onMount
+  {
+    const s = this.subscription
+    if s {
+      this.form = { company_id: String(s.company_id), product: s.product ?? "", name: s.name ?? "", kind: s.kind ?? "subscription", plan: s.plan ?? "", amount: Number(s.amount ?? 0), currency: s.currency ?? "KES", cycle: s.cycle ?? "yearly", starts_on: s.starts_on ? String(s.starts_on).slice(0, 10) : "", renews_on: s.renews_on ? String(s.renews_on).slice(0, 10) : "", status: s.status ?? "active", auto_renew: Boolean(s.auto_renew), reference: s.reference ?? "", notes: s.notes ?? "" }
+    } else if this.companyId {
+      this.form.company_id = String(this.companyId)
+    }
+  }
+
+template
+  <form onsubmit.prevent="{{ save() }}" novalidate>
+{{#if error}}<div class="tx-alert tx-alert-error mb-4" role="alert"><p>{{ error }}</p></div>{{/if}}
+    <div class="grid sm:grid-cols-2 gap-x-4">
+{{#if not companyId and not subscription}}
+      <div class="tx-field sm:col-span-2"><label class="tx-label" for="sf-co">Company</label><select id="sf-co" class="tx-input" bind:value="{{ form.company_id }}"><option value="">Pick a company</option>{{#each c in companies}}<option value="{{ String(c.id) }}">{{ c.name }}</option>{{/each}}</select></div>
+{{/if}}
+      <div class="tx-field"><label class="tx-label" for="sf-prod">Product</label><select id="sf-prod" class="tx-input" bind:value="{{ form.product }}" onchange="{{ autoName() }}"><option value="">Not a product</option>{{#each t in Catalog.topics()}}<option value="{{ t.value }}">{{ t.label }}</option>{{/each}}</select></div>
+      <div class="tx-field"><label class="tx-label" for="sf-kind">Type</label><select id="sf-kind" class="tx-input" bind:value="{{ form.kind }}"><option value="subscription">Subscription</option><option value="hosting">Hosting</option><option value="domain">Domain</option><option value="email">Email</option><option value="sms">SMS / Sender ID</option><option value="maintenance">Maintenance</option><option value="license">Licence</option><option value="support_plan">Support plan</option><option value="other">Other</option></select></div>
+      <div class="tx-field sm:col-span-2"><label class="tx-label" for="sf-name">Name shown to the client</label><input id="sf-name" class="tx-input" placeholder="e.g. MediSynq Hospital, example.co.ke" bind:value="{{ form.name }}" /></div>
+      <div class="tx-field"><label class="tx-label" for="sf-plan">Plan</label><input id="sf-plan" class="tx-input" bind:value="{{ form.plan }}" /></div>
+      <div class="tx-field"><label class="tx-label" for="sf-ref">Reference <span class="text-muted font-normal">(domain, Sender ID…)</span></label><input id="sf-ref" class="tx-input" bind:value="{{ form.reference }}" /></div>
+      <div class="tx-field"><label class="tx-label" for="sf-amt">Price</label><div class="flex gap-2"><input id="sf-cur" class="tx-input !w-20" aria-label="Currency" bind:value="{{ form.currency }}" /><input id="sf-amt" type="number" min="0" class="tx-input" bind:value="{{ form.amount }}" /></div></div>
+      <div class="tx-field"><label class="tx-label" for="sf-cycle">Billing cycle</label><select id="sf-cycle" class="tx-input" bind:value="{{ form.cycle }}"><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="yearly">Yearly</option><option value="one_time">One time</option></select></div>
+      <div class="tx-field"><label class="tx-label" for="sf-start">Started</label><input id="sf-start" type="date" class="tx-input" bind:value="{{ form.starts_on }}" /></div>
+      <div class="tx-field"><label class="tx-label" for="sf-renew">Renews / expires</label><input id="sf-renew" type="date" class="tx-input" bind:value="{{ form.renews_on }}" /></div>
+      <div class="tx-field"><label class="tx-label" for="sf-status">Status</label><select id="sf-status" class="tx-input" bind:value="{{ form.status }}"><option value="active">Active</option><option value="pending">Pending</option><option value="suspended">Suspended</option><option value="expired">Expired</option><option value="cancelled">Cancelled</option></select></div>
+      <label class="tx-field flex items-center gap-2 text-sm sm:pt-7"><input type="checkbox" class="tx-check" bind:checked="{{ form.auto_renew }}" /> Renews automatically</label>
+      <div class="tx-field sm:col-span-2"><label class="tx-label" for="sf-notes">Notes</label><textarea id="sf-notes" rows="2" class="tx-input" bind:value="{{ form.notes }}"></textarea></div>
+    </div>
+    <div class="flex flex-wrap justify-between gap-2">
+{{#if subscription}}<button type="button" class="tx-btn tx-btn-danger" onclick="{{ remove() }}">Delete</button>{{#else}}<span></span>{{/if}}
+      <div class="flex gap-2"><button type="button" class="tx-btn tx-btn-ghost" onclick="{{ onCancel() }}">Cancel</button><button type="submit" class="tx-btn tx-btn-primary" disabled="{{ saving }}">{{ saving ? "Saving…" : "Save service" }}</button></div>
+    </div>
+  </form>

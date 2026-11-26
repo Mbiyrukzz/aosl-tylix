@@ -1,0 +1,225 @@
+component SiteNav
+
+import { IconMenu, IconX, IconChevronDown, IconArrowRight, IconArrowUpRight, IconCode, IconDeviceMobile, IconCloud, IconLifeBuoy, IconLayers, IconPlug, IconBriefcase, IconActivity, IconMail, IconBuildingOffice } from "tylix-icons"
+
+// The public site's top bar: full-width menus for products, services and
+// the company, then either sign-in buttons or a jump into the portal.
+// Desktop menus open on hover or click and close shortly after the
+// pointer leaves, so moving diagonally into a menu doesn't shut it.
+
+uses
+  Auth
+  Catalog
+
+state
+  menuOpen: false
+  openMenu: ""
+  closeTimer: 0
+  services: [
+    { href: "/services#build", title: "Custom software", body: "Web apps, portals and SaaS, built for how you work", icon: "code" },
+    { href: "/services#models", title: "Engineering teams", body: "Next.js, Java and more: new builds or takeovers", icon: "layers" },
+    { href: "/services#build", title: "Mobile apps", body: "Android and iPhone, from first version to store", icon: "mobile" },
+    { href: "/services#build", title: "Integrations & APIs", body: "M-Pesa, KRA eTIMS, SMS, banks and partners", icon: "plug" },
+    { href: "/#email", title: "Business email", body: "Private Email or Spacemail at your own domain", icon: "mail" },
+    { href: "/services#build", title: "Cloud & hosting", body: "Managed servers, domains and SSL", icon: "cloud" },
+    { href: "/services#plans", title: "Support plans", body: "Response times you can see in your portal", icon: "support" }
+  ]
+
+computed
+  business() {
+    return Catalog.products.filter(p => p.slug is not "tylix" and p.slug is not "flux")
+  }
+
+  platform() {
+    return Catalog.products.filter(p => p.slug is "tylix" or p.slug is "flux")
+  }
+
+action
+  isActive(href) {
+    const path = window.location.pathname
+    return path is href or path.startsWith(href + "/")
+  }
+
+  show(name) {
+    clearTimeout(this.closeTimer)
+    this.openMenu = name
+  }
+
+  toggle(name) {
+    clearTimeout(this.closeTimer)
+    this.openMenu = this.openMenu is name ? "" : name
+  }
+
+  closeLater() {
+    clearTimeout(this.closeTimer)
+    this.closeTimer = setTimeout(() => {
+      this.openMenu = ""
+    }, 160)
+  }
+
+  onKey(e) {
+    if e.key is "Escape" {
+      this.openMenu = ""
+    }
+  }
+
+template
+  <header class="tx-nav" onkeydown="{{ onKey($event) }}">
+    <nav class="relative tx-container h-16 flex items-center justify-between gap-4" aria-label="Main">
+      <div class="flex items-center gap-6 min-w-0">
+        <BrandLogo />
+        <div class="hidden lg:flex items-center gap-0.5" onmouseleave="{{ closeLater() }}">
+          <button type="button" class="tx-nav-link inline-flex items-center gap-1 cursor-pointer bg-transparent" class:tx-nav-link-active="{{ isActive('/products') or openMenu is 'products' }}" aria-expanded="{{ openMenu is 'products' }}" onclick="{{ toggle('products') }}" onmouseenter="{{ show('products') }}">
+            Products <span class="nav-chev" class:nav-chev-open="{{ openMenu is 'products' }}"><IconChevronDown class="w-3.5 h-3.5 opacity-70" /></span>
+          </button>
+          <button type="button" class="tx-nav-link inline-flex items-center gap-1 cursor-pointer bg-transparent" class:tx-nav-link-active="{{ isActive('/services') or openMenu is 'services' }}" aria-expanded="{{ openMenu is 'services' }}" onclick="{{ toggle('services') }}" onmouseenter="{{ show('services') }}">
+            Services <span class="nav-chev" class:nav-chev-open="{{ openMenu is 'services' }}"><IconChevronDown class="w-3.5 h-3.5 opacity-70" /></span>
+          </button>
+          <button type="button" class="tx-nav-link inline-flex items-center gap-1 cursor-pointer bg-transparent" class:tx-nav-link-active="{{ isActive('/careers') or isActive('/status') or openMenu is 'company' }}" aria-expanded="{{ openMenu is 'company' }}" onclick="{{ toggle('company') }}" onmouseenter="{{ show('company') }}">
+            Company <span class="nav-chev" class:nav-chev-open="{{ openMenu is 'company' }}"><IconChevronDown class="w-3.5 h-3.5 opacity-70" /></span>
+          </button>
+          <a href="/contact" class="tx-nav-link" class:tx-nav-link-active="{{ isActive('/contact') }}" onmouseenter="{{ closeLater() }}">Contact</a>
+
+{{#if openMenu is "products"}}
+          <div class="mega" onmouseenter="{{ show('products') }}">
+            <div class="mega-panel grid grid-cols-[1fr_1fr_17rem]">
+              <div class="p-5 col-span-2 grid grid-cols-2 gap-x-2 content-start">
+                <p class="mega-kicker col-span-2">Business software</p>
+{{#each p in business}}
+                <a href="{{ `/products/${p.slug}` }}" class="mega-item">
+                  <span class="product-icon !w-10 !h-10 !rounded-xl" style:background="{{ p.color + '1f' }}" style:color="{{ p.color }}"><ProductIcon slug="{{ p.slug }}" cls="w-5 h-5" /></span>
+                  <span class="min-w-0">
+                    <span class="block text-sm font-semibold text-ink">{{ p.name }}</span>
+                    <span class="block text-xs text-muted leading-snug mt-0.5">{{ p.tagline }}</span>
+                  </span>
+                </a>
+{{/each}}
+                <p class="mega-kicker col-span-2 mt-3">Developer platform</p>
+{{#each p in platform}}
+                <a href="{{ `/products/${p.slug}` }}" class="mega-item">
+                  <span class="product-icon !w-10 !h-10 !rounded-xl" style:background="{{ p.color + '1f' }}" style:color="{{ p.color }}"><ProductIcon slug="{{ p.slug }}" cls="w-5 h-5" /></span>
+                  <span class="min-w-0">
+                    <span class="block text-sm font-semibold text-ink">{{ p.name }}</span>
+                    <span class="block text-xs text-muted leading-snug mt-0.5">{{ p.tagline }}</span>
+                  </span>
+                </a>
+{{/each}}
+              </div>
+              <div class="mega-aside">
+                <p class="mega-kicker">Can't find it?</p>
+                <p class="text-base font-semibold text-ink leading-snug">We build custom software in Next.js, Java, Tylix or the stack you already run.</p>
+                <div class="mt-4 flex -space-x-1.5">
+                  <span class="stack-dot"><img src="/logos/nextjs.svg" alt="Next.js" /></span>
+                  <span class="stack-dot"><img src="/logos/java.svg" alt="Java" /></span>
+                  <span class="stack-dot"><span class="tylix-mark w-4 text-[#3563ff]"></span></span>
+                  <span class="stack-dot"><img src="/logos/vue.svg" alt="Vue" /></span>
+                  <span class="stack-dot"><img src="/logos/django.svg" alt="Django" /></span>
+                </div>
+                <a href="/services" class="mt-auto pt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-brand no-underline">Engineering services <IconArrowRight class="w-4 h-4" /></a>
+              </div>
+              <a href="/products" class="col-span-3 mega-foot">Compare all {{ Catalog.products.length }} products <IconArrowRight class="w-4 h-4 text-brand" /></a>
+            </div>
+          </div>
+{{/if}}
+
+{{#if openMenu is "services"}}
+          <div class="mega" onmouseenter="{{ show('services') }}">
+            <div class="mega-panel grid grid-cols-[1fr_1fr_17rem]">
+              <div class="p-5 col-span-2 grid grid-cols-2 gap-x-2 content-start">
+                <p class="mega-kicker col-span-2">What we do</p>
+{{#each s in services}}
+                <a href="{{ s.href }}" class="mega-item">
+                  <span class="mega-icon">
+{{#if s.icon is "code"}}<IconCode />{{#else if s.icon is "layers"}}<IconLayers />{{#else if s.icon is "mobile"}}<IconDeviceMobile />{{#else if s.icon is "plug"}}<IconPlug />{{#else if s.icon is "cloud"}}<IconCloud />{{#else if s.icon is "mail"}}<IconMail />{{#else}}<IconLifeBuoy />{{/if}}
+                  </span>
+                  <span class="min-w-0">
+                    <span class="block text-sm font-semibold text-ink">{{ s.title }}</span>
+                    <span class="block text-xs text-muted leading-snug mt-0.5">{{ s.body }}</span>
+                  </span>
+                </a>
+{{/each}}
+              </div>
+              <div class="mega-aside">
+                <p class="mega-kicker">Start a project</p>
+                <p class="text-base font-semibold text-ink leading-snug">Tell us what's slowing your team down. We reply within one business day with a plan, a price and a timeline.</p>
+                <a href="/contact?topic=project" class="mt-auto tx-btn tx-btn-primary tx-btn-sm self-start">Talk to us <IconArrowRight /></a>
+              </div>
+              <a href="/services" class="col-span-3 mega-foot">See all services and how we work <IconArrowRight class="w-4 h-4 text-brand" /></a>
+            </div>
+          </div>
+{{/if}}
+
+{{#if openMenu is "company"}}
+          <div class="mega" onmouseenter="{{ show('company') }}">
+            <div class="mega-panel grid grid-cols-[1fr_1fr_17rem]">
+              <div class="p-5 col-span-2 grid grid-cols-2 gap-x-2 content-start">
+                <p class="mega-kicker col-span-2">Ashmif Office Solutions</p>
+                <a href="/careers" class="mega-item"><span class="mega-icon"><IconBriefcase /></span><span><span class="block text-sm font-semibold text-ink">Careers</span><span class="block text-xs text-muted mt-0.5">Build software that runs real businesses</span></span></a>
+                <a href="/status" class="mega-item"><span class="mega-icon"><IconActivity /></span><span><span class="block text-sm font-semibold text-ink">System status</span><span class="block text-xs text-muted mt-0.5">Live health of every product</span></span></a>
+                <a href="/contact" class="mega-item"><span class="mega-icon"><IconMail /></span><span><span class="block text-sm font-semibold text-ink">Contact</span><span class="block text-xs text-muted mt-0.5">Sales, support and partnerships</span></span></a>
+                <a href="/contact?topic=partnership" class="mega-item"><span class="mega-icon"><IconBuildingOffice /></span><span><span class="block text-sm font-semibold text-ink">Partner with us</span><span class="block text-xs text-muted mt-0.5">Resellers, agencies and integrators</span></span></a>
+              </div>
+              <div class="mega-aside">
+                <span class="group-mark w-11 h-11"></span>
+                <p class="mt-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-gold">Part of Ashmif Group</p>
+                <p class="mt-1 text-sm text-soft leading-relaxed">Built and supported from Mombasa, Kenya, in your time zone.</p>
+              </div>
+            </div>
+          </div>
+{{/if}}
+        </div>
+      </div>
+
+      <div class="flex items-center gap-1.5 sm:gap-2">
+        <ThemeSwitch />
+{{#if Auth.user}}
+        <a href="{{ Auth.home() }}" class="tx-btn tx-btn-primary tx-btn-sm hidden sm:inline-flex">{{ Auth.isStaff() ? "Console" : "My portal" }} <IconArrowRight /></a>
+        <a href="{{ Auth.home() }}" class="rounded-full" title="{{ Auth.user.name }}" aria-label="Open your portal"><Avatar name="{{ Auth.user.name }}" url="{{ Auth.user.avatar_url }}" size="{{ 34 }}" staff="{{ Auth.isStaff() }}" /></a>
+{{#else if not Auth.loading}}
+        <a href="/contact?topic=project" class="tx-btn tx-btn-ghost tx-btn-sm hidden xl:inline-flex">Talk to sales</a>
+        <a href="/login" class="tx-btn tx-btn-ghost tx-btn-sm hidden sm:inline-flex">Sign in</a>
+        <a href="/register" class="tx-btn tx-btn-primary tx-btn-sm hidden sm:inline-flex">Get started</a>
+{{/if}}
+        <button type="button" class="tx-icon-btn lg:hidden" aria-label="{{ menuOpen ? 'Close menu' : 'Open menu' }}" aria-expanded="{{ menuOpen }}" onclick="{{ menuOpen = not menuOpen }}">
+{{#if menuOpen}}<IconX />{{#else}}<IconMenu />{{/if}}
+        </button>
+      </div>
+    </nav>
+
+{{#if menuOpen}}
+    <div class="lg:hidden border-t border-line bg-canvas max-h-[calc(100dvh-4rem)] overflow-y-auto">
+      <div class="tx-container py-4">
+        <p class="tx-kicker px-1 mb-2">Products</p>
+        <div class="grid grid-cols-2 gap-1 mb-4">
+{{#each p in Catalog.products}}
+          <a href="{{ `/products/${p.slug}` }}" class="flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-raised no-underline text-sm font-medium text-ink">
+            <span class="product-icon !w-8 !h-8 !rounded-lg" style:background="{{ p.color + '1f' }}" style:color="{{ p.color }}"><ProductIcon slug="{{ p.slug }}" cls="w-4 h-4" /></span>
+            {{ p.name }}
+          </a>
+{{/each}}
+        </div>
+        <p class="tx-kicker px-1 mb-2 pt-3 border-t border-line">Services</p>
+        <div class="grid grid-cols-2 gap-1 mb-4">
+{{#each s in services}}
+          <a href="{{ s.href }}" class="p-2.5 rounded-xl hover:bg-raised no-underline text-sm font-medium text-ink">{{ s.title }}</a>
+{{/each}}
+        </div>
+        <div class="flex flex-col gap-1 border-t border-line pt-3">
+          <a href="/products" class="tx-nav-link">Compare all products</a>
+          <a href="/careers" class="tx-nav-link">Careers</a>
+          <a href="/status" class="tx-nav-link">System status</a>
+          <a href="/contact" class="tx-nav-link">Contact</a>
+        </div>
+{{#if not Auth.user}}
+        <div class="grid grid-cols-2 gap-2 mt-4">
+          <a href="/login" class="tx-btn tx-btn-outline">Sign in</a>
+          <a href="/register" class="tx-btn tx-btn-primary">Get started</a>
+        </div>
+        <a href="/contact?topic=project" class="tx-btn tx-btn-ghost tx-btn-block mt-2">Talk to sales</a>
+{{#else}}
+        <a href="{{ Auth.home() }}" class="tx-btn tx-btn-primary tx-btn-block mt-4">{{ Auth.isStaff() ? "Open the console" : "Open my portal" }}</a>
+{{/if}}
+      </div>
+    </div>
+{{/if}}
+  </header>

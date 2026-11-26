@@ -1,25 +1,634 @@
 page Home
 
-import Hero from "./components/Hero"
-import InstallSnippet from "./components/InstallSnippet"
-import Stats from "./components/Stats"
-import FeatureGrid from "./components/FeatureGrid"
-import HowItWorks from "./components/HowItWorks"
-import LatestPosts from "./components/LatestPosts"
-import CTASection from "./components/CTASection"
+import { IconInbox, IconPencil, IconStar, IconArchive, IconGlobe, IconDeviceMobile, IconArrowRight, IconArrowUpRight, IconCheck, IconCheckCircle, IconClock, IconMessageCircle, IconTicket, IconReceipt, IconKanban, IconMobileMoney, IconSend, IconShieldCheck, IconMapPin, IconUsers, IconHeadphones, IconServer, IconGitBranch, IconMessagesSquare, IconCode, IconLayoutDashboard, IconPackage, IconBell, IconSearch } from "tylix-icons"
 
-title "Tylix"
+title "Ashmif Office Solutions · Software that runs East African businesses"
 
 uses
   Auth
+  Catalog
+
+state
+  sent: 18240
+  delivered: 17912
+  toastIdx: 0
+  toasts: [
+    { title: "Payment received", body: "KES 14,999 · INV-2026-0041", icon: "pay" },
+    { title: "Ticket resolved", body: "AOS-1042 · rated 5★", icon: "ok" },
+    { title: "Renewal reminder sent", body: "coastline.co.ke · 14 days", icon: "bell" }
+  ]
+  tour: "support"
+  cpu: 34
+  eng: "next"
+  clock: ""
+  health: ""
+  healthOk: true
+  rail: [
+    { id: "nextjs", name: "Next.js" }, { id: "java", name: "Java" }, { id: "tylix", name: "Tylix" }, { id: "vue", name: "Vue" },
+    { id: "nuxt", name: "Nuxt" }, { id: "angular", name: "Angular" }, { id: "nodejs", name: "Node.js" }, { id: "php", name: "PHP" },
+    { id: "django", name: "Django" }, { id: "fastapi", name: "FastAPI" }, { id: "dotnet", name: ".NET" }, { id: "go", name: "Go" },
+    { id: "docker", name: "Docker" }, { id: "aws", name: "AWS" }, { id: "cloudflare", name: "Cloudflare" }, { id: "digitalocean", name: "DigitalOcean" },
+    { id: "flux", name: "Tylix Flux" }
+  ]
+  steps: [
+    { n: "01", title: "Listen", body: "We sit with the people who do the work and write down goals, users and budget, plainly.", log: "✔ brief signed off" },
+    { n: "02", title: "Design", body: "Clickable screens and a fixed scope before code starts. No surprises later.", log: "✔ screens approved" },
+    { n: "03", title: "Build", body: "Weekly demos you can click through. Follow every milestone live in your portal.", log: "● demo every Thursday" },
+    { n: "04", title: "Run", body: "We deploy with Flux, watch it and support it with response times you can see.", log: "○ live, watched, supported" }
+  ]
+
+computed
+  toast() {
+    return this.toasts[this.toastIdx]
+  }
+
+  rate() {
+    return Math.round((this.delivered / this.sent) * 1000) / 10
+  }
+
+onMount
+  {
+    const tick = () => {
+      this.clock = new Date().toLocaleTimeString("en-GB", { timeZone: "Africa/Nairobi", hour: "2-digit", minute: "2-digit" })
+    }
+    tick()
+    setInterval(tick, 15000)
+    useApi("/api/public/status").then(r => {
+      if r.ok {
+        const bad = r.data.products.filter(p => p.state is not "operational").length
+        this.healthOk = bad is 0
+        this.health = bad ? (bad is 1 ? "1 service needs attention" : `${bad} services need attention`) : "all systems operational"
+      }
+    })
+    setInterval(() => {
+      if document.hidden {
+        return null
+      }
+      const n = 3 + Math.floor(Math.random() * 9)
+      this.sent += n
+      this.delivered += n - (Math.random() < 0.3 ? 1 : 0)
+      this.cpu = 22 + Math.floor(Math.random() * 30)
+    }, 1400)
+    setInterval(() => {
+      this.toastIdx = (this.toastIdx + 1) % this.toasts.length
+    }, 3600)
+  }
 
 template
-  <div>
-    <Hero loggedIn="{{ Auth.user }}" hasAuth="{{ true }}" hasPosts="{{ true }}" />
-    <Stats />
-    <FeatureGrid />
-    <InstallSnippet />
-    <HowItWorks />
-    <LatestPosts />
-    <CTASection loggedIn="{{ Auth.user }}" hasAuth="{{ true }}" />
-  </div>
+<div>
+  <section class="relative overflow-hidden">
+    <div class="absolute inset-0 bg-grid mask-fade-b"></div>
+    <div class="relative tx-container pt-14 sm:pt-24 text-center">
+      <a href="/status" class="fade-up inline-flex items-center gap-2.5 rounded-full border border-line bg-panel/80 backdrop-blur px-3.5 py-1.5 font-mono text-[11px] sm:text-xs text-soft no-underline hover:border-line-strong transition-colors mb-8">
+        <span class="text-brand">❯</span>
+        <span>mombasa <span class="text-ink tabular">{{ clock or "--:--" }}</span> EAT</span>
+        <span class="text-muted">·</span>
+        <span class="inline-flex items-center gap-1.5"><span class="{{ 'tx-live ' + (healthOk ? 'text-mint' : 'text-peach') }}"></span><span class="hidden sm:inline">{{ health or "checking systems…" }}</span><span class="sm:hidden">{{ healthOk ? "all good" : "see status" }}</span></span>
+      </a>
+      <h1 class="fade-up fade-up-2 text-[2.6rem] leading-[1.02] sm:text-[4.25rem] lg:text-[5.25rem] font-bold tracking-[-0.045em] text-balance max-w-5xl mx-auto">
+        The software that runs <span class="text-brand">East African business</span>
+      </h1>
+      <p class="fade-up fade-up-3 mt-6 text-base sm:text-xl text-soft max-w-2xl mx-auto leading-relaxed text-pretty">
+        Eight products for payroll, school fees, hospitals, property, freight and messaging. Business email, hosting and an engineering team that ships in Next.js, Java, Tylix or the stack you already run. Made in Mombasa, supported by people who answer.
+      </p>
+      <div class="fade-up fade-up-4 mt-9 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 max-w-sm sm:max-w-none mx-auto">
+{{#if Auth.user}}
+        <a href="{{ Auth.home() }}" class="tx-btn tx-btn-primary tx-btn-lg">{{ Auth.isStaff() ? "Open the console" : "Go to my portal" }} <IconArrowRight /></a>
+{{#else}}
+        <a href="/register" class="tx-btn tx-btn-primary tx-btn-lg">Get started <IconArrowRight /></a>
+{{/if}}
+        <a href="/contact?topic=project" class="tx-btn tx-btn-outline tx-btn-lg">Talk to sales</a>
+      </div>
+      <p class="fade-up fade-up-4 mt-6 text-xs text-muted flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+        <span class="inline-flex items-center gap-1.5"><IconCheck class="w-3.5 h-3.5 text-brand" /> M-Pesa & KRA ready</span>
+        <span class="inline-flex items-center gap-1.5"><IconCheck class="w-3.5 h-3.5 text-brand" /> Response times you can see</span>
+        <span class="inline-flex items-center gap-1.5"><IconCheck class="w-3.5 h-3.5 text-brand" /> One portal for every product</span>
+      </p>
+    </div>
+
+    <div class="relative tx-container mt-14 sm:mt-20">
+      <div class="relative mx-auto max-w-6xl fade-up fade-up-4">
+        <div class="frame !rounded-[20px]">
+          <div class="frame-bar !py-2.5"><i></i><i></i><i></i><span class="mx-auto text-[11px] font-mono text-muted hidden sm:block">portal.ashmif.com/overview</span></div>
+          <div class="grid grid-cols-[3.25rem_1fr] sm:grid-cols-[13rem_1fr] min-h-[24rem] text-left">
+            <aside class="border-r border-line bg-panel p-2 sm:p-3 space-y-0.5">
+              <div class="flex items-center gap-2 px-2 py-2 mb-2"><span class="aos-mark h-6 text-brand"></span></div>
+              <div class="flex items-center gap-2.5 px-2 py-2 rounded-lg bg-brand-soft/10 text-ink text-[13px] font-medium"><IconLayoutDashboard class="w-4 h-4 text-brand shrink-0" /><span class="hidden sm:inline">Overview</span></div>
+              <div class="flex items-center gap-2.5 px-2 py-2 rounded-lg text-soft text-[13px]"><IconTicket class="w-4 h-4 text-muted shrink-0" /><span class="hidden sm:inline">Support tickets</span></div>
+              <div class="flex items-center gap-2.5 px-2 py-2 rounded-lg text-soft text-[13px]"><IconMessageCircle class="w-4 h-4 text-muted shrink-0" /><span class="hidden sm:inline">Messages</span><span class="hidden sm:inline-flex ml-auto app-nav-count">2</span></div>
+              <div class="flex items-center gap-2.5 px-2 py-2 rounded-lg text-soft text-[13px]"><IconPackage class="w-4 h-4 text-muted shrink-0" /><span class="hidden sm:inline">Services</span></div>
+              <div class="flex items-center gap-2.5 px-2 py-2 rounded-lg text-soft text-[13px]"><IconKanban class="w-4 h-4 text-muted shrink-0" /><span class="hidden sm:inline">Projects</span></div>
+              <div class="flex items-center gap-2.5 px-2 py-2 rounded-lg text-soft text-[13px]"><IconReceipt class="w-4 h-4 text-muted shrink-0" /><span class="hidden sm:inline">Billing</span></div>
+            </aside>
+            <div class="bg-canvas p-4 sm:p-6 min-w-0">
+              <div class="flex items-center justify-between gap-3">
+                <div class="min-w-0"><p class="text-xs text-muted">Good morning, Amina</p><p class="text-lg sm:text-xl font-bold tracking-tight truncate">Coastline Clinics</p></div>
+                <div class="flex items-center gap-2">
+                  <span class="hidden md:flex items-center gap-2 h-8 px-3 rounded-full border border-line bg-panel text-xs text-muted"><IconSearch class="w-3.5 h-3.5" /> Search <span class="kbd">⌘K</span></span>
+                  <span class="relative tx-icon-btn !w-8 !h-8 border border-line bg-panel"><IconBell class="!w-4 !h-4" /><span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-coral"></span></span>
+                  <span class="avatar w-8 h-8 text-[11px]">AO</span>
+                </div>
+              </div>
+              <div class="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div class="tx-panel-flat p-3.5"><p class="text-[11px] text-muted flex items-center gap-1.5"><IconTicket class="w-3.5 h-3.5 text-sky" /> Open tickets</p><p class="mt-1.5 text-2xl font-bold tabular">2</p></div>
+                <div class="tx-panel-flat p-3.5"><p class="text-[11px] text-muted flex items-center gap-1.5"><IconReceipt class="w-3.5 h-3.5 text-peach" /> Balance due</p><p class="mt-1.5 text-2xl font-bold tabular">14,999</p></div>
+                <div class="tx-panel-flat p-3.5"><p class="text-[11px] text-muted flex items-center gap-1.5"><IconClock class="w-3.5 h-3.5 text-brand" /> Avg first reply</p><p class="mt-1.5 text-2xl font-bold tabular">38m</p></div>
+                <div class="tx-panel-flat p-3.5"><p class="text-[11px] text-muted flex items-center gap-1.5"><IconMessagesSquare class="w-3.5 h-3.5 text-violet" /> SMS delivered</p><p class="mt-1.5 text-2xl font-bold tabular">{{ delivered.toLocaleString() }}</p></div>
+              </div>
+              <div class="mt-3 grid lg:grid-cols-[1.4fr_1fr] gap-3">
+                <div class="tx-panel-flat overflow-hidden">
+                  <p class="px-4 py-2.5 text-xs font-semibold border-b border-line">Recent tickets</p>
+                  <div class="shot-row"><span class="w-2 h-2 rounded-full bg-peach"></span><span class="flex-1 truncate font-medium">Lab results not printing</span><span class="tx-badge tone-peach">Awaiting you</span></div>
+                  <div class="shot-row"><span class="w-2 h-2 rounded-full bg-sky"></span><span class="flex-1 truncate font-medium">Add two pharmacy users</span><span class="tx-badge tone-sky">In progress</span></div>
+                  <div class="shot-row"><span class="w-2 h-2 rounded-full bg-mint"></span><span class="flex-1 truncate font-medium">SHA claims export</span><span class="tx-badge tone-mint">Resolved</span></div>
+                </div>
+                <div class="tx-panel-flat p-4">
+                  <p class="text-xs font-semibold">Patient app, phase 2</p>
+                  <div class="mt-3 flex items-center gap-3"><div class="tx-progress flex-1"><span style="width:68%"></span></div><span class="text-xs text-muted tabular">68%</span></div>
+                  <ul class="mt-3 space-y-1.5 text-[11px] text-soft list-none p-0">
+                    <li class="flex items-center gap-2"><IconCheckCircle class="w-3.5 h-3.5 text-mint" /> Booking & reminders</li>
+                    <li class="flex items-center gap-2"><span class="w-3.5 h-3.5 rounded-full border-2 border-brand border-r-transparent"></span> Lab results</li>
+                    <li class="flex items-center gap-2 text-muted"><span class="w-3.5 h-3.5 rounded-full border border-line-strong"></span> M-Pesa checkout</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="hidden md:flex absolute -left-6 lg:-left-12 top-24 w-72 tx-panel !rounded-2xl p-3.5 items-center gap-3 shadow-2xl">
+          <span class="{{ 'tx-stat-icon !w-10 !h-10 !rounded-xl shrink-0 text-white ' + (toast.icon is 'pay' ? 'bg-mint' : toast.icon is 'ok' ? 'bg-sky' : 'bg-peach') }}">
+{{#if toast.icon is "pay"}}<IconMobileMoney class="!w-5 !h-5" />{{#else if toast.icon is "ok"}}<IconCheckCircle class="!w-5 !h-5" />{{#else}}<IconBell class="!w-5 !h-5" />{{/if}}
+          </span>
+          <div class="min-w-0 text-left"><p class="text-sm font-semibold">{{ toast.title }}</p><p class="text-xs text-muted truncate">{{ toast.body }}</p></div>
+          <span class="ml-auto text-[10px] text-muted">now</span>
+        </div>
+
+        <div class="hidden md:block absolute -right-6 lg:-right-12 -bottom-10 w-80 tx-panel !rounded-2xl overflow-hidden shadow-2xl text-left">
+          <div class="px-4 py-3 border-b border-line flex items-center gap-3">
+            <span class="relative w-9 h-9 rounded-xl bg-[#07090d] flex items-center justify-center"><span class="aos-mark h-5 text-[#18c192]"></span><span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-mint border-2 border-panel"></span></span>
+            <div><p class="text-sm font-semibold">Ashmif Support</p><p class="text-[11px] text-muted">Online · replies in minutes</p></div>
+          </div>
+          <div class="p-3.5 space-y-2.5">
+            <div class="bubble bubble-me !text-xs ml-auto w-fit">Can we export this month's SHA claims?</div>
+            <div class="flex gap-2"><span class="avatar avatar-staff w-6 h-6 text-[9px]">FS</span><div class="bubble bubble-them !text-xs">Yes! Billing → Claims → Export. Want me to walk you through it?</div></div>
+          </div>
+          <div class="px-3.5 pb-3.5"><div class="h-9 rounded-full border border-line flex items-center justify-between pl-3.5 pr-1 text-xs text-muted">Type a message…<span class="w-7 h-7 rounded-full bg-brand flex items-center justify-center"><IconSend class="w-3.5 h-3.5 text-brand-on" /></span></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="h-20 sm:h-28"></div>
+  </section>
+
+  <section class="border-y border-line bg-panel/60">
+    <div class="tx-container py-8 grid gap-5 lg:grid-cols-[14rem_1fr] items-center">
+      <p class="font-mono text-xs text-muted leading-relaxed text-center lg:text-left"><span class="text-brand">❯</span> we ship in<br class="hidden lg:block" /> <span class="text-ink">the stacks business runs on</span></p>
+      <div class="logo-rail" aria-label="Technologies we build with">
+        <div class="marquee">
+{{#each l in rail}}
+          <span class="logo-chip"><span class="logo-chip-tile">{{#if l.id is "tylix"}}<span class="tylix-mark w-[1.125rem] text-[#3563ff]"></span>{{#else if l.id is "flux"}}<img src="/brand/flux-mark.svg" alt="" class="rounded" />{{#else}}<img src="{{ '/logos/' + l.id + '.svg' }}" alt="" />{{/if}}</span>{{ l.name }}</span>
+{{/each}}
+{{#each l in rail}}
+          <span class="logo-chip" aria-hidden="true"><span class="logo-chip-tile">{{#if l.id is "tylix"}}<span class="tylix-mark w-[1.125rem] text-[#3563ff]"></span>{{#else if l.id is "flux"}}<img src="/brand/flux-mark.svg" alt="" class="rounded" />{{#else}}<img src="{{ '/logos/' + l.id + '.svg' }}" alt="" />{{/if}}</span>{{ l.name }}</span>
+{{/each}}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tx-container py-20 sm:py-28" id="products">
+    <div class="max-w-3xl reveal">
+      <p class="prompt-eyebrow mb-4"><span>~/</span><b>products</b></p>
+      <h2 class="section-title">Eight products. One team that answers for all of them.</h2>
+      <p class="mt-4 text-lg text-soft max-w-2xl">Each one solves a real East African workflow end to end, and every client gets the same portal, the same support and the same people.</p>
+    </div>
+
+    <div class="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <a href="/products/medisynq" class="reveal tx-panel tx-hover p-6 no-underline text-ink flex flex-col lg:col-span-2">
+        <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-semibold text-[#0ea5e9]">Healthcare</p><h3 class="mt-1 text-xl font-bold">MediSynq</h3><p class="mt-1.5 text-sm text-soft max-w-md">The whole patient visit in one system: reception, triage, lab, pharmacy and billing with M-Pesa and SHA claims.</p></div><span class="product-icon shrink-0 bg-[#0ea5e9]/10 text-[#0ea5e9]"><ProductIcon slug="medisynq" cls="w-6 h-6" /></span></div>
+        <div class="mt-6 shot">
+          <div class="shot-bar"><i></i><i></i><i></i><span class="ml-2 text-[10px] text-muted font-mono">Live queue · Outpatient</span></div>
+          <div class="shot-row"><span class="font-mono text-muted w-10">#014</span><span class="flex-1 font-medium">Fatuma H.</span><span class="hidden sm:inline text-muted">BP 128/84 · 36.9°C</span><span class="tx-badge tone-violet">With doctor</span></div>
+          <div class="shot-row"><span class="font-mono text-muted w-10">#015</span><span class="flex-1 font-medium">Brian O.</span><span class="hidden sm:inline text-muted">Full haemogram</span><span class="tx-badge tone-sky">In lab</span></div>
+          <div class="shot-row"><span class="font-mono text-muted w-10">#016</span><span class="flex-1 font-medium">Salma K.</span><span class="hidden sm:inline text-muted">Amoxicillin 500mg</span><span class="tx-badge tone-peach">Pharmacy</span></div>
+          <div class="shot-row"><span class="font-mono text-muted w-10">#017</span><span class="flex-1 font-medium">John M.</span><span class="hidden sm:inline text-muted">KES 2,400 · M-Pesa</span><span class="tx-badge tone-mint">Paid</span></div>
+        </div>
+      </a>
+
+      <a href="/products/sms" class="reveal reveal-d1 tx-panel tx-hover p-6 no-underline text-ink flex flex-col">
+        <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-semibold text-brand">Messaging</p><h3 class="mt-1 text-xl font-bold">Ashmif SMS</h3><p class="mt-1.5 text-sm text-soft">Bulk SMS under your own Sender ID.</p></div><span class="product-icon shrink-0 bg-brand-soft/10 text-brand"><ProductIcon slug="sms" cls="w-6 h-6" /></span></div>
+        <div class="mt-6 shot p-4 flex-1 flex flex-col justify-between">
+          <div class="flex items-center justify-between text-[11px]"><span class="font-mono font-semibold">COASTLINE</span><span class="flex items-center gap-1.5 text-mint"><span class="tx-live"></span> Sending</span></div>
+          <p class="mt-4 text-3xl font-bold tabular tracking-tight">{{ sent.toLocaleString() }}</p>
+          <p class="text-[11px] text-muted">messages sent · {{ rate }}% delivered</p>
+          <div class="mt-3 tx-progress"><span style:width="{{ rate + '%' }}"></span></div>
+        </div>
+      </a>
+
+      <a href="/products/rekoncile" class="reveal tx-panel tx-hover p-6 no-underline text-ink flex flex-col">
+        <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-semibold text-[#e4a93c]">School fees</p><h3 class="mt-1 text-xl font-bold">Rekoncile</h3><p class="mt-1.5 text-sm text-soft">Every M-Pesa payment matched to the right student.</p></div><span class="product-icon shrink-0 bg-[#e4a93c]/10 text-[#e4a93c]"><ProductIcon slug="rekoncile" cls="w-6 h-6" /></span></div>
+        <div class="mt-6 shot">
+          <div class="shot-row"><span class="font-mono text-muted">SKL4XY…</span><span class="flex-1 truncate">Adm 1043 · Term 3</span><IconCheckCircle class="w-4 h-4 text-mint" /></div>
+          <div class="shot-row"><span class="font-mono text-muted">SKM2QA…</span><span class="flex-1 truncate">Adm 0987 · Transport</span><IconCheckCircle class="w-4 h-4 text-mint" /></div>
+          <div class="shot-row"><span class="font-mono text-muted">SKN8PL…</span><span class="flex-1 truncate">“grade 4 fees”</span><span class="tx-badge tone-peach">Review</span></div>
+        </div>
+      </a>
+
+      <a href="/products/payroflix" class="reveal reveal-d1 tx-panel tx-hover p-6 no-underline text-ink flex flex-col">
+        <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-semibold text-[#8b5cf6]">HR & payroll</p><h3 class="mt-1 text-xl font-bold">Payroflix</h3><p class="mt-1.5 text-sm text-soft">Payroll with statutory deductions done for you.</p></div><span class="product-icon shrink-0 bg-[#8b5cf6]/10 text-[#8b5cf6]"><ProductIcon slug="payroflix" cls="w-6 h-6" /></span></div>
+        <div class="mt-6 shot p-4 text-[11px] space-y-1.5">
+          <div class="flex justify-between"><span class="text-muted">Gross pay</span><span class="tabular font-medium">85,000.00</span></div>
+          <div class="flex justify-between"><span class="text-muted">PAYE</span><span class="tabular">−14,632.40</span></div>
+          <div class="flex justify-between"><span class="text-muted">NSSF · SHIF · Housing</span><span class="tabular">−6,920.00</span></div>
+          <div class="flex justify-between pt-2 mt-1 border-t border-line text-sm font-bold"><span>Net pay</span><span class="tabular text-brand">63,447.60</span></div>
+        </div>
+      </a>
+
+      <a href="/products/smartrealtors" class="reveal reveal-d2 tx-panel tx-hover p-6 no-underline text-ink flex flex-col">
+        <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-semibold text-[#f97316]">Property</p><h3 class="mt-1 text-xl font-bold">SmartRealtors</h3><p class="mt-1.5 text-sm text-soft">Rent collected, reminders sent, evenings back.</p></div><span class="product-icon shrink-0 bg-[#f97316]/10 text-[#f97316]"><ProductIcon slug="smartrealtors" cls="w-6 h-6" /></span></div>
+        <div class="mt-6 shot p-4">
+          <p class="text-[11px] text-muted">Rent collected · last 6 months</p>
+          <div class="mt-3 flex items-end gap-1.5 h-16">
+            <span class="flex-1 rounded-t bg-[#f97316]/30" style="height:55%"></span><span class="flex-1 rounded-t bg-[#f97316]/30" style="height:70%"></span><span class="flex-1 rounded-t bg-[#f97316]/30" style="height:62%"></span><span class="flex-1 rounded-t bg-[#f97316]/30" style="height:80%"></span><span class="flex-1 rounded-t bg-[#f97316]/30" style="height:74%"></span><span class="flex-1 rounded-t bg-[#f97316]" style="height:94%"></span>
+          </div>
+        </div>
+      </a>
+
+      <a href="/products/smartfreight" class="reveal tx-panel tx-hover p-6 no-underline text-ink flex flex-col">
+        <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-semibold text-[#6366f1]">Logistics</p><h3 class="mt-1 text-xl font-bold">SmartFreight</h3><p class="mt-1.5 text-sm text-soft">Manifests to delivery orders, one system.</p></div><span class="product-icon shrink-0 bg-[#6366f1]/10 text-[#6366f1]"><ProductIcon slug="smartfreight" cls="w-6 h-6" /></span></div>
+        <div class="mt-6 shot p-4">
+          <p class="text-[11px] font-mono text-muted">BL-MSA-20931 · 40ft</p>
+          <div class="mt-4 flex items-start text-[10px] font-medium">
+            <span class="flex flex-col items-center gap-1.5 w-16"><span class="w-3 h-3 rounded-full bg-[#6366f1]"></span>Jebel Ali</span>
+            <span class="flex-1 h-0.5 bg-[#6366f1] mt-1.5"></span>
+            <span class="flex flex-col items-center gap-1.5 w-16"><span class="w-3 h-3 rounded-full bg-[#6366f1] ring-4 ring-[#6366f1]/20"></span>Mombasa</span>
+            <span class="flex-1 h-0.5 bg-line-strong mt-1.5"></span>
+            <span class="flex flex-col items-center gap-1.5 w-16 text-muted"><span class="w-3 h-3 rounded-full border-2 border-line-strong"></span>Warehouse</span>
+          </div>
+        </div>
+      </a>
+
+
+      <a href="/products/flux" class="reveal reveal-d2 tx-panel tx-hover p-6 no-underline text-ink flex flex-col">
+        <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-semibold text-[#e0393f]">Deployment & hosting</p><h3 class="mt-1 text-xl font-bold">Tylix Flux</h3><p class="mt-1.5 text-sm text-soft">Servers, deploys and domains in one dashboard.</p></div><span class="product-icon shrink-0 bg-[#e0393f]/10"><ProductIcon slug="flux" cls="w-7 h-7" /></span></div>
+        <div class="mt-6 shot p-4 text-[11px] space-y-2.5">
+          <div class="flex items-center justify-between"><span class="flex items-center gap-1.5 font-medium"><IconServer class="w-3.5 h-3.5 text-muted" /> app-prod-1</span><span class="text-mint flex items-center gap-1"><IconGitBranch class="w-3 h-3" /> Deployed</span></div>
+          <div><div class="flex justify-between text-muted mb-1"><span>CPU</span><span class="tabular">{{ cpu }}%</span></div><div class="tx-progress !h-1.5"><span style:width="{{ cpu + '%' }}"></span></div></div>
+          <div><div class="flex justify-between text-muted mb-1"><span>Memory</span><span class="tabular">61%</span></div><div class="tx-progress !h-1.5"><span style="width:61%"></span></div></div>
+        </div>
+      </a>
+      <a href="/services" class="reveal reveal-d2 rounded-[16px] border border-dashed border-line-strong p-6 no-underline text-ink flex flex-col justify-between hover:bg-panel transition-colors">
+        <div><p class="text-xs font-semibold text-gold">Custom software</p><h3 class="mt-1 text-xl font-bold">Need something else?</h3><p class="mt-1.5 text-sm text-soft">Web apps, mobile apps, integrations and websites, built for how your team works.</p></div>
+        <span class="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-brand">Tell us about it <IconArrowRight class="w-4 h-4" /></span>
+      </a>
+      <a href="/products/tylix" class="reveal reveal-d1 rounded-[16px] border border-white/10 bg-[#0a0d12] p-6 no-underline text-white flex flex-col md:col-span-2 lg:col-span-3 tx-hover">
+        <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-semibold text-[#7d9bff]">Developer framework · open source</p><h3 class="mt-1 text-xl font-bold text-white">Tylix</h3><p class="mt-1.5 text-sm text-white/65 max-w-md">Our open-source full-stack JavaScript framework, behind Tylix Flux and the client portal. Pages, API, auth, ORM and jobs, already wired together.</p></div><span class="product-icon shrink-0 bg-[#3563ff]/15 text-[#7d9bff]"><ProductIcon slug="tylix" cls="w-7" /></span></div>
+        <div class="mt-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div class="code rounded-xl border border-white/10 bg-black/30 p-4 overflow-hidden text-white/85">
+            <div><span class="k">page</span> Counter</div>
+            <div>&nbsp;</div>
+            <div><span class="k">state</span></div>
+            <div class="pl-4">count: <span class="t">0</span></div>
+            <div>&nbsp;</div>
+            <div><span class="k">action</span></div>
+            <div class="pl-4"><span class="f">increment</span>() {</div>
+            <div class="pl-8">this.count++</div>
+            <div class="pl-4">}</div>
+          </div>
+          <div class="rounded-xl border border-white/10 bg-black/30 p-4 code text-white/80">
+            <p class="m-0"><span class="c">$</span> npm create tylix@latest</p>
+            <p class="m-0 text-white/50">✔ Pages, API, auth, ORM</p>
+            <p class="m-0 text-white/50">✔ Mail, queues, PWA</p>
+            <p class="m-0"><span class="c">$</span> npx tylix dev</p>
+            <p class="m-0"><span class="s">➜</span> localhost:3000 <span class="caret"></span></p>
+          </div>
+          <ul class="hidden lg:grid rounded-xl border border-white/10 bg-black/30 p-4 gap-2 text-sm text-white/75 list-none m-0">
+            <li class="flex gap-2"><span class="text-[#18c192]">✓</span> React, Vue, Svelte or Angular</li>
+            <li class="flex gap-2"><span class="text-[#18c192]">✓</span> Auth and sessions built in</li>
+            <li class="flex gap-2"><span class="text-[#18c192]">✓</span> One ORM, six databases</li>
+            <li class="flex gap-2"><span class="text-[#18c192]">✓</span> Typed API client</li>
+            <li class="flex gap-2"><span class="text-[#18c192]">✓</span> MIT licensed</li>
+          </ul>
+        </div>
+      </a>
+    </div>
+    <div class="mt-8 flex justify-center reveal"><a href="/products" class="tx-btn tx-btn-outline">Compare every product <IconArrowRight /></a></div>
+  </section>
+
+  <section class="relative border-y border-line bg-panel/40 overflow-hidden" id="shell">
+    <div class="absolute inset-0 bg-dots opacity-40 mask-fade-b"></div>
+    <div class="relative tx-container py-20 sm:py-28 grid gap-12 lg:grid-cols-[0.85fr_1.15fr] items-center">
+      <div class="reveal min-w-0">
+        <p class="prompt-eyebrow mb-4"><span>~/</span><b>shell</b></p>
+        <h2 class="section-title">Have a look around. <span class="text-brand">We left the terminal open.</span></h2>
+        <p class="mt-5 text-lg text-soft">Prefer typing to scrolling? Ask our shell about the products, business email, the languages we ship in, or the live status of every system. On a phone, just tap a command.</p>
+        <ul class="mt-8 space-y-3 text-sm text-soft list-none p-0">
+          <li class="flex items-center gap-3"><span class="kbd">↑</span><span class="kbd">↓</span> walk through what you typed</li>
+          <li class="flex items-center gap-3"><span class="kbd">Tab</span> finishes a command for you</li>
+          <li class="flex items-center gap-3"><span class="kbd">open medisynq</span> jumps straight to a product</li>
+        </ul>
+      </div>
+      <div class="reveal reveal-d1 min-w-0"><AshShell /></div>
+    </div>
+  </section>
+
+  <section class="tx-container py-20 sm:py-28" id="email">
+    <div class="grid gap-14 lg:grid-cols-[0.9fr_1.1fr] items-center">
+      <div class="reveal min-w-0">
+        <p class="prompt-eyebrow mb-4"><span>~/</span><b>email</b></p>
+        <h2 class="section-title">Business email at <span class="text-brand">your own domain</span></h2>
+        <p class="mt-5 text-lg text-soft">Swap the Gmail address on your invoices for <span class="font-mono text-ink text-base">you@yourcompany.co.ke</span>. We set you up on Private Email or Spacemail, move your old mail across and support it from the same portal as everything else.</p>
+        <div class="mt-8 grid sm:grid-cols-2 gap-x-6 gap-y-5">
+          <div class="flex gap-3"><IconGlobe class="w-5 h-5 text-brand shrink-0 mt-0.5" /><div><p class="font-semibold text-sm">Domain and DNS done</p><p class="text-sm text-muted mt-0.5">MX, SPF, DKIM and DMARC set so your mail lands in inboxes, not spam.</p></div></div>
+          <div class="flex gap-3"><IconInbox class="w-5 h-5 text-brand shrink-0 mt-0.5" /><div><p class="font-semibold text-sm">Old mail moved over</p><p class="text-sm text-muted mt-0.5">From Gmail, Yahoo or your last host, folders and all.</p></div></div>
+          <div class="flex gap-3"><IconDeviceMobile class="w-5 h-5 text-brand shrink-0 mt-0.5" /><div><p class="font-semibold text-sm">Every device set up</p><p class="text-sm text-muted mt-0.5">Webmail, Outlook and phones, for the whole team.</p></div></div>
+          <div class="flex gap-3"><IconHeadphones class="w-5 h-5 text-brand shrink-0 mt-0.5" /><div><p class="font-semibold text-sm">One place for help</p><p class="text-sm text-muted mt-0.5">Billing, new mailboxes and password resets from your portal.</p></div></div>
+        </div>
+        <div class="mt-8 flex flex-wrap items-center gap-3">
+          <a href="/contact?topic=email" class="tx-btn tx-btn-primary">Get business email <IconArrowRight /></a>
+          <span class="inline-flex items-center gap-2 rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-medium text-soft"><span class="w-5 h-5 rounded-md bg-white border border-line flex items-center justify-center"><img src="/logos/namecheap.svg" alt="" class="w-3.5 h-3.5" /></span> Private Email</span>
+          <span class="inline-flex items-center gap-2 rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-medium text-soft"><span class="w-5 h-5 rounded-md bg-white border border-line flex items-center justify-center"><img src="/logos/spaceship.svg" alt="" class="w-3.5 h-3.5" /></span> Spacemail</span>
+        </div>
+      </div>
+
+      <div class="relative min-w-0 reveal reveal-d1 pb-16 sm:pb-20">
+        <div class="frame">
+          <div class="frame-bar"><i></i><i></i><i></i><span class="ml-3 text-[11px] font-mono text-muted truncate">amina@coastline.co.ke · Inbox</span></div>
+          <div class="mailbox">
+            <aside class="border-r border-line bg-raised/40 p-3 text-[13px] space-y-0.5">
+              <span class="tx-btn tx-btn-primary tx-btn-sm w-full mb-3 justify-center"><IconPencil /> Compose</span>
+              <div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-brand-soft/10 font-medium"><span class="flex items-center gap-2"><IconInbox class="w-4 h-4 text-brand" /> Inbox</span><span class="text-xs font-semibold text-brand">4</span></div>
+              <div class="flex items-center gap-2 px-2.5 py-1.5 text-soft"><IconSend class="w-4 h-4 text-muted" /> Sent</div>
+              <div class="flex items-center gap-2 px-2.5 py-1.5 text-soft"><IconStar class="w-4 h-4 text-muted" /> Starred</div>
+              <div class="flex items-center gap-2 px-2.5 py-1.5 text-soft"><IconArchive class="w-4 h-4 text-muted" /> Archive</div>
+            </aside>
+            <div class="min-w-0">
+              <div class="mail-row"><span class="avatar w-8 h-8 text-[11px] !bg-[#f5b544] !text-[#2a1a00]">BS</span><span class="min-w-0"><span class="block font-semibold truncate">Bahari Suppliers</span><span class="block text-muted truncate">Quote for 40 lab coats, delivery Friday</span></span><span class="text-xs text-muted tabular">9:41</span></div>
+              <div class="mail-row"><span class="avatar w-8 h-8 text-[11px]">AB</span><span class="min-w-0"><span class="block font-semibold truncate">Ashmif Billing</span><span class="block text-muted truncate">INV-2026-0041 is ready in your portal</span></span><span class="text-xs text-muted tabular">9:12</span></div>
+              <div class="mail-row"><span class="avatar w-8 h-8 text-[11px] !bg-[#8b7cff] !text-white">DO</span><span class="min-w-0"><span class="block font-semibold truncate">Dr. Otieno</span><span class="block text-muted truncate">Ward rota for December, attached</span></span><span class="text-xs text-muted tabular">Tue</span></div>
+              <div class="mail-row"><span class="avatar w-8 h-8 text-[11px] !bg-[#60a5fa] !text-[#04122b]">FD</span><span class="min-w-0"><span class="block font-semibold truncate">Front desk</span><span class="block text-muted truncate">14 new patient bookings for tomorrow</span></span><span class="text-xs text-muted tabular">Mon</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="term absolute -bottom-2 right-0 sm:-right-4 w-[19rem] sm:w-[23rem] max-w-full !text-[12px]">
+          <div class="term-bar"><i></i><i></i><i></i><span class="term-title">dns check</span></div>
+          <div class="px-4 py-3 leading-relaxed">
+            <div><span class="t-p">❯</span> <span class="text-white">dig +short MX coastline.co.ke</span></div>
+            <div class="t-dim">10 mx1.privateemail.com.</div>
+            <div class="t-ok">✔ SPF  ✔ DKIM  ✔ DMARC <span class="t-dim">· inbox-ready</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="border-y border-line bg-panel/50">
+    <div class="tx-container py-20 sm:py-28 grid gap-12 grid-cols-1 lg:grid-cols-[0.85fr_1.15fr] items-center">
+      <div class="min-w-0 reveal">
+        <p class="prompt-eyebrow mb-4"><span>~/</span><b>portal</b></p>
+        <h2 class="section-title">Everything about your account, one sign-in away</h2>
+        <p class="mt-5 text-lg text-soft">No more chasing email threads. Every Ashmif client gets a portal for support, billing, projects and renewals.</p>
+        <div class="mt-8 grid gap-2">
+          <button type="button" class="{{ 'text-left p-4 rounded-2xl border transition-colors cursor-pointer ' + (tour is 'support' ? 'border-line-strong bg-panel shadow-sm' : 'border-transparent bg-transparent hover:bg-panel/60') }}" onclick="{{ tour = 'support' }}">
+            <span class="font-semibold flex items-center gap-2 text-ink"><IconHeadphones class="w-4 h-4 text-brand" /> Support with a clock on it</span>
+            <span class="block mt-1 text-sm text-muted">Message us from any page, open tickets and see exactly when we'll respond.</span>
+          </button>
+          <button type="button" class="{{ 'text-left p-4 rounded-2xl border transition-colors cursor-pointer ' + (tour is 'billing' ? 'border-line-strong bg-panel shadow-sm' : 'border-transparent bg-transparent hover:bg-panel/60') }}" onclick="{{ tour = 'billing' }}">
+            <span class="font-semibold flex items-center gap-2 text-ink"><IconMobileMoney class="w-4 h-4 text-brand" /> Invoices you can pay in a tap</span>
+            <span class="block mt-1 text-sm text-muted">Accept quotes, pay with M-Pesa, tell us the code and get a receipt.</span>
+          </button>
+          <button type="button" class="{{ 'text-left p-4 rounded-2xl border transition-colors cursor-pointer ' + (tour is 'projects' ? 'border-line-strong bg-panel shadow-sm' : 'border-transparent bg-transparent hover:bg-panel/60') }}" onclick="{{ tour = 'projects' }}">
+            <span class="font-semibold flex items-center gap-2 text-ink"><IconKanban class="w-4 h-4 text-brand" /> Projects you can follow</span>
+            <span class="block mt-1 text-sm text-muted">Milestones, progress and updates straight from the people building it.</span>
+          </button>
+        </div>
+        <a href="{{ Auth.user ? Auth.home() : '/register' }}" class="tx-btn tx-btn-primary mt-8">{{ Auth.user ? "Open my portal" : "Create a client account" }} <IconArrowRight /></a>
+      </div>
+
+      <div class="relative min-w-0 reveal reveal-d1">
+        <div class="absolute -inset-4 bg-dots rounded-[28px] mask-fade-b"></div>
+        <div class="relative frame">
+          <div class="frame-bar"><i></i><i></i><i></i><span class="ml-3 text-[11px] font-mono text-muted">{{ tour is "support" ? "Tickets / AOS-1042" : tour is "billing" ? "Billing / INV-2026-0041" : "Projects / Patient app" }}</span></div>
+{{#if tour is "support"}}
+          <div class="p-5 sm:p-6 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-2"><p class="font-bold">Lab results not printing</p><div class="flex gap-1.5"><span class="tx-badge tone-sky tx-badge-dot">In progress</span><span class="tx-badge tone-peach">High</span></div></div>
+            <div class="grid sm:grid-cols-3 gap-2 text-xs">
+              <div class="tx-well p-3"><p class="text-muted">Response target</p><p class="mt-1 font-semibold text-mint flex items-center gap-1"><IconCheckCircle class="w-3.5 h-3.5" /> Met in 22m</p></div>
+              <div class="tx-well p-3"><p class="text-muted">Handled by</p><p class="mt-1 font-semibold flex items-center gap-1.5"><span class="avatar avatar-staff w-5 h-5 text-[8px]">FS</span> Fatma Said</p></div>
+              <div class="tx-well p-3"><p class="text-muted">Plan</p><p class="mt-1 font-semibold text-gold">Gold · 8h</p></div>
+            </div>
+            <div class="rounded-2xl border border-line p-4"><p class="text-xs text-muted mb-1.5">Amina · 9:12</p><p class="text-sm">Print shows a blank page on all three reception PCs.</p></div>
+            <div class="rounded-2xl border border-brand-soft/30 bg-brand-soft/5 p-4"><p class="text-xs text-muted mb-1.5">Fatma · Ashmif · 9:34</p><p class="text-sm">Fixed in release 3.4.2. Refresh and try again, it should print now.</p></div>
+          </div>
+{{#else if tour is "billing"}}
+          <div class="p-5 sm:p-6">
+            <div class="rounded-2xl bg-white text-[#0b1220] p-5 border border-line">
+              <div class="flex justify-between items-start"><span class="aos-mark h-8 text-[#0b8562]"></span><div class="text-right"><p class="font-bold text-sm">INVOICE</p><p class="font-mono text-xs text-[#5b6b82]">INV-2026-0041</p></div></div>
+              <div class="mt-5 text-xs space-y-2">
+                <div class="flex justify-between border-b border-[#e5eaf0] pb-2"><span>MediSynq Hospital (monthly)</span><span class="tabular">14,999.00</span></div>
+                <div class="flex justify-between border-b border-[#e5eaf0] pb-2"><span>VAT 16%</span><span class="tabular">2,399.84</span></div>
+                <div class="flex justify-between font-bold text-sm"><span>Total</span><span class="tabular">KES 17,398.84</span></div>
+              </div>
+            </div>
+            <div class="mt-4 grid sm:grid-cols-[1fr_auto] gap-3 items-center">
+              <div class="tx-well p-3 text-xs"><p class="font-semibold flex items-center gap-1.5"><IconMobileMoney class="w-4 h-4 text-brand" /> Pay with M-Pesa</p><p class="text-muted mt-0.5">Paybill · account INV-2026-0041</p></div>
+              <span class="tx-btn tx-btn-primary tx-btn-sm"><IconCheckCircle /> I've paid</span>
+            </div>
+          </div>
+{{#else}}
+          <div class="p-5 sm:p-6">
+            <div class="flex items-center gap-5">
+              <div class="relative w-24 h-24 shrink-0"><svg viewBox="0 0 36 36" class="w-full h-full -rotate-90"><circle cx="18" cy="18" r="15.9" fill="none" stroke="rgb(var(--tx-well))" stroke-width="3.2" /><circle cx="18" cy="18" r="15.9" fill="none" stroke="rgb(var(--tx-brand))" stroke-width="3.2" stroke-linecap="round" stroke-dasharray="68 100" /></svg><span class="absolute inset-0 flex items-center justify-center text-lg font-bold">68%</span></div>
+              <div><p class="font-bold">Patient app, phase 2</p><p class="text-xs text-muted mt-1">Led by Mbaruk · target 26 Dec</p></div>
+            </div>
+            <ol class="mt-5 border-l-2 border-line ml-2 space-y-4 list-none p-0">
+              <li class="pl-5 relative"><span class="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-brand"></span><p class="text-xs text-muted">Today</p><p class="text-sm">Booking and SMS reminders are live in the test app. Lab results screen is next.</p></li>
+              <li class="pl-5 relative"><span class="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-line-strong"></span><p class="text-xs text-muted">2 weeks ago</p><p class="text-sm text-soft">Design signed off. Thanks for the quick feedback!</p></li>
+            </ol>
+          </div>
+{{/if}}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band-dark" id="engineering">
+    <div class="absolute inset-0 bg-grid mask-fade-b opacity-60"></div>
+    <div class="relative tx-container py-20 sm:py-28">
+      <div class="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end reveal">
+        <div class="max-w-3xl">
+          <p class="prompt-eyebrow !text-white/50 mb-4"><span>~/</span><b class="!text-[#18c192]">engineering</b></p>
+          <h2 class="section-title text-white">Many languages. <span class="text-[#18c192]">One engineering standard.</span></h2>
+          <p class="mt-5 text-lg text-white/65 leading-relaxed max-w-2xl">We ship production systems in Next.js, Java, PHP, Python and Tylix, our own open-source framework. We pick what fits the problem and your team, and we're just as happy working in the codebase you already have.</p>
+        </div>
+        <a href="/contact?topic=project" class="tx-btn tx-btn-lg !bg-white !text-[#07090d] self-start lg:self-auto">Talk to an engineer <IconArrowRight /></a>
+      </div>
+
+      <div class="mt-12 grid gap-6 lg:grid-cols-[22rem_1fr] reveal reveal-d1">
+        <div class="grid gap-2 content-start" role="tablist" aria-label="Stacks">
+          <button type="button" role="tab" aria-selected="{{ eng is 'next' }}" class="eng-tab" class:eng-tab-on="{{ eng is 'next' }}" onclick="{{ eng = 'next' }}">
+            <span class="eng-tile"><img src="/logos/nextjs.svg" alt="" /></span>
+            <span class="min-w-0"><span class="block font-semibold">Next.js &amp; React</span><span class="block text-xs text-white/50 mt-0.5">Web apps, portals and storefronts</span></span>
+          </button>
+          <button type="button" role="tab" aria-selected="{{ eng is 'java' }}" class="eng-tab" class:eng-tab-on="{{ eng is 'java' }}" onclick="{{ eng = 'java' }}">
+            <span class="eng-tile"><img src="/logos/java.svg" alt="" /></span>
+            <span class="min-w-0"><span class="block font-semibold">Java &amp; Spring</span><span class="block text-xs text-white/50 mt-0.5">Enterprise services and integrations</span></span>
+          </button>
+          <button type="button" role="tab" aria-selected="{{ eng is 'tylix' }}" class="eng-tab" class:eng-tab-on="{{ eng is 'tylix' }}" onclick="{{ eng = 'tylix' }}">
+            <span class="eng-tile"><span class="tylix-mark w-5 text-[#3563ff]"></span></span>
+            <span class="min-w-0"><span class="block font-semibold">Tylix</span><span class="block text-xs text-white/50 mt-0.5">Our framework: Flux, the portal, this site</span></span>
+          </button>
+          <button type="button" role="tab" aria-selected="{{ eng is 'yours' }}" class="eng-tab" class:eng-tab-on="{{ eng is 'yours' }}" onclick="{{ eng = 'yours' }}">
+            <span class="eng-tile"><IconCode class="w-5 h-5 text-[#07090d]" /></span>
+            <span class="min-w-0"><span class="block font-semibold">Your codebase</span><span class="block text-xs text-white/50 mt-0.5">PHP, Python, .NET, Node.js and more</span></span>
+          </button>
+
+          <div class="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-sm text-white/70 leading-relaxed">
+{{#if eng is "next"}}
+            <p class="text-white font-semibold">Fast on every connection.</p>
+            <p class="mt-2">Server rendering, caching and typed APIs for sites and dashboards that stay quick on patchy mobile data, with M-Pesa checkout built in.</p>
+{{#else if eng is "java"}}
+            <p class="text-white font-semibold">Built to be correct, every time.</p>
+            <p class="mt-2">Spring Boot services for organisations where money and records move: integrations, batch jobs and APIs with tests that run on every change.</p>
+{{#else if eng is "tylix"}}
+            <p class="text-white font-semibold">Our own open-source, MIT-licensed framework.</p>
+            <p class="mt-2">Pages, API, auth, ORM, jobs and mail already wired together. Because we maintain it, a fix lands in days, not whenever someone else's roadmap allows.</p>
+            <div class="mt-4 flex flex-wrap gap-2"><a href="/products/tylix" class="eng-chip">Tylix</a><a href="/products/flux" class="eng-chip">Tylix Flux</a><a href="https://tylix.dev" target="_blank" rel="noopener" class="eng-chip">tylix.dev <IconArrowUpRight class="w-3 h-3" /></a></div>
+{{#else}}
+            <p class="text-white font-semibold">We work in the code you already have.</p>
+            <p class="mt-2">Taking over an app another team left behind, adding a mobile app to an old backend or speeding up a slow site is everyday work. No rewrite unless it truly pays off.</p>
+            <div class="mt-4 flex flex-wrap gap-2"><a href="/services#stack" class="eng-chip">Every technology we use <IconArrowRight class="w-3 h-3" /></a></div>
+{{/if}}
+          </div>
+        </div>
+
+        <div class="min-w-0 term">
+          <div class="term-bar"><i></i><i></i><i></i><span class="term-title truncate">{{ eng is "next" ? "app/invoices/page.tsx" : eng is "java" ? "src/main/java/claims/ClaimsController.java" : eng is "tylix" ? "app/pages/portal/Index.tyx" : "flux deploy" }}</span></div>
+{{#if eng is "next"}}
+          <div class="code p-5 sm:p-6 overflow-x-auto text-white/85 whitespace-nowrap min-h-[22rem]">
+            <div><span class="k">export default async function</span> <span class="f">InvoicesPage</span>() {</div>
+            <div class="pl-6"><span class="k">const</span> invoices = <span class="k">await</span> db.invoice.<span class="f">findMany</span>({</div>
+            <div class="pl-12">where: { status: <span class="s">"unpaid"</span> },</div>
+            <div class="pl-12">orderBy: { dueAt: <span class="s">"asc"</span> },</div>
+            <div class="pl-6">})</div>
+            <div>&nbsp;</div>
+            <div class="pl-6"><span class="k">return</span> (</div>
+            <div class="pl-12">&lt;<span class="n">InvoiceTable</span> rows={invoices} onPay={<span class="f">payWithMpesa</span>} /&gt;</div>
+            <div class="pl-6">)</div>
+            <div>}</div>
+          </div>
+{{#else if eng is "java"}}
+          <div class="code p-5 sm:p-6 overflow-x-auto text-white/85 whitespace-nowrap min-h-[22rem]">
+            <div><span class="t">@RestController</span></div>
+            <div><span class="t">@RequestMapping</span>(<span class="s">"/api/claims"</span>)</div>
+            <div><span class="k">class</span> <span class="n">ClaimsController</span> {</div>
+            <div>&nbsp;</div>
+            <div class="pl-6"><span class="k">private final</span> <span class="n">ClaimService</span> claims;</div>
+            <div>&nbsp;</div>
+            <div class="pl-6"><span class="t">@PostMapping</span></div>
+            <div class="pl-6"><span class="n">ResponseEntity</span>&lt;<span class="n">Claim</span>&gt; <span class="f">submit</span>(<span class="t">@Valid @RequestBody</span> <span class="n">ClaimRequest</span> req) {</div>
+            <div class="pl-12"><span class="n">Claim</span> claim = claims.<span class="f">submit</span>(req);</div>
+            <div class="pl-12"><span class="k">return</span> <span class="n">ResponseEntity</span>.<span class="f">status</span>(CREATED).<span class="f">body</span>(claim);</div>
+            <div class="pl-6">}</div>
+            <div>}</div>
+          </div>
+{{#else if eng is "tylix"}}
+          <div class="code p-5 sm:p-6 overflow-x-auto text-white/85 whitespace-nowrap min-h-[22rem]">
+            <div><span class="k">page</span> PortalHome</div>
+            <div>&nbsp;</div>
+            <div><span class="k">uses</span></div>
+            <div class="pl-4">Auth</div>
+            <div>&nbsp;</div>
+            <div><span class="k">state</span></div>
+            <div class="pl-4">tickets: []</div>
+            <div>&nbsp;</div>
+            <div><span class="k">onMount</span></div>
+            <div class="pl-4"><span class="k">async</span> {</div>
+            <div class="pl-8"><span class="k">const</span> r = <span class="k">await</span> <span class="f">useApi</span>(<span class="s">"/api/portal/tickets"</span>)</div>
+            <div class="pl-8">this.tickets = r.data</div>
+            <div class="pl-4">}</div>
+          </div>
+{{#else}}
+          <div class="code p-5 sm:p-6 overflow-x-auto text-white/80 whitespace-nowrap min-h-[22rem]">
+            <p class="m-0"><span class="t-p">❯</span> flux deploy shop-web</p>
+            <p class="m-0 text-white/50">→ detected Next.js 15 · Node 22</p>
+            <p class="m-0 text-white/50">→ npm ci · next build</p>
+            <p class="m-0"><span class="s">✔ Live</span> on app-prod-1 in 41s</p>
+            <p class="m-0">&nbsp;</p>
+            <p class="m-0"><span class="t-p">❯</span> flux deploy claims-api</p>
+            <p class="m-0 text-white/50">→ detected Spring Boot 3 · Java 21</p>
+            <p class="m-0 text-white/50">→ ./mvnw package</p>
+            <p class="m-0"><span class="s">✔ Live</span> on app-prod-2 in 66s</p>
+            <p class="m-0">&nbsp;</p>
+            <p class="m-0"><span class="t-p">❯</span> flux deploy clinic-reports</p>
+            <p class="m-0 text-white/50">→ detected Django 5 · Python 3.12</p>
+            <p class="m-0"><span class="s">✔ Live</span> on app-prod-2 <span class="caret"></span></p>
+          </div>
+{{/if}}
+        </div>
+      </div>
+
+      <div class="mt-12 grid grid-cols-2 lg:grid-cols-4 border-t border-white/10 reveal">
+        <div class="pt-8 pr-4"><p class="text-3xl sm:text-4xl font-bold tracking-tight text-white font-mono">16</p><p class="mt-1.5 text-sm text-white/55">stacks Tylix Flux deploys from Git</p></div>
+        <div class="pt-8 pr-4 lg:border-l lg:pl-8 border-white/10"><p class="text-3xl sm:text-4xl font-bold tracking-tight text-white font-mono">7</p><p class="mt-1.5 text-sm text-white/55">cloud providers we can run your app on</p></div>
+        <div class="pt-8 pr-4 lg:border-l lg:pl-8 border-white/10"><p class="text-3xl sm:text-4xl font-bold tracking-tight text-white font-mono">MIT</p><p class="mt-1.5 text-sm text-white/55">licence on the framework we maintain</p></div>
+        <div class="pt-8 pr-4 lg:border-l lg:pl-8 border-white/10"><p class="text-3xl sm:text-4xl font-bold tracking-tight text-white font-mono">EAT</p><p class="mt-1.5 text-sm text-white/55">engineers in your time zone, in Mombasa</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tx-container py-20 sm:py-28">
+    <div class="grid gap-12 lg:grid-cols-[0.8fr_1.2fr]">
+      <div class="reveal lg:sticky lg:top-24 self-start">
+        <p class="prompt-eyebrow mb-4"><span>~/</span><b>reliability</b></p>
+        <h2 class="section-title">For organisations that can't afford to stop</h2>
+        <p class="mt-5 text-lg text-soft">Hospitals, schools and payroll teams run their day on our software. These are the commitments behind it.</p>
+        <div class="mt-8 flex flex-wrap gap-3">
+          <a href="/status" class="tx-btn tx-btn-outline"><span class="tx-live text-mint"></span> System status</a>
+          <a href="/services#plans" class="tx-btn tx-btn-ghost">Support plans <IconArrowRight /></a>
+        </div>
+      </div>
+      <div class="grid gap-px rounded-3xl overflow-hidden border border-line bg-line sm:grid-cols-2">
+        <div class="bg-panel p-7 reveal"><IconClock class="w-6 h-6 text-brand" /><p class="mt-5 text-3xl font-bold tracking-tight">2h<span class="text-base font-semibold text-muted"> / 8h / 24h</span></p><p class="mt-2 font-semibold">First-response targets</p><p class="mt-1 text-sm text-muted leading-relaxed">Set by your plan and shown on every ticket, so you always know when we'll reply.</p></div>
+        <div class="bg-panel p-7 reveal reveal-d1"><IconShieldCheck class="w-6 h-6 text-brand" /><p class="mt-5 font-semibold">Secure by default</p><p class="mt-1 text-sm text-muted leading-relaxed">Role-based access for every user and sessions you can revoke from your portal.</p></div>
+        <div class="bg-panel p-7 reveal"><IconMobileMoney class="w-6 h-6 text-brand" /><p class="mt-5 font-semibold">Kenyan compliance built in</p><p class="mt-1 text-sm text-muted leading-relaxed">M-Pesa, PAYE, NSSF, SHIF, the Housing Levy and SHA claims handled in the product, not in a spreadsheet.</p></div>
+        <div class="bg-panel p-7 reveal reveal-d1"><IconServer class="w-6 h-6 text-brand" /><p class="mt-5 font-semibold">Your cloud or ours</p><p class="mt-1 text-sm text-muted leading-relaxed">We host it for you, or deploy to your own AWS, DigitalOcean or Hetzner account with Tylix Flux.</p></div>
+        <div class="bg-panel p-7 reveal"><IconUsers class="w-6 h-6 text-brand" /><p class="mt-5 font-semibold">A named account manager</p><p class="mt-1 text-sm text-muted leading-relaxed">On Gold and Platinum, one person who knows your setup and your team.</p></div>
+        <div class="bg-panel p-7 reveal reveal-d1"><IconMapPin class="w-6 h-6 text-brand" /><p class="mt-5 font-semibold">In your time zone</p><p class="mt-1 text-sm text-muted leading-relaxed">Engineers and support in Mombasa, six days a week, 8am to 6pm EAT.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tx-container py-20 sm:py-28">
+    <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-14 reveal">
+      <div class="max-w-2xl">
+        <p class="prompt-eyebrow mb-4"><span>~/</span><b>custom-software</b></p>
+        <h2 class="section-title">When nothing off the shelf fits, <span class="text-brand">we build it</span></h2>
+      </div>
+      <a href="/services" class="tx-btn tx-btn-outline self-start lg:self-auto">Our services <IconArrowRight /></a>
+    </div>
+    <ol class="pipe grid gap-10 lg:gap-6 lg:grid-cols-4 list-none p-0 m-0">
+{{#each st, i in steps}}
+      <li class="{{ 'flex lg:block gap-5 reveal reveal-d' + Math.min(3, i) }}">
+        <span class="pipe-dot" class:pipe-dot-done="{{ i < 2 }}">{{ st.n }}</span>
+        <div class="lg:mt-6 min-w-0">
+          <h3 class="text-xl font-bold tracking-tight">{{ st.title }}</h3>
+          <p class="mt-2 text-sm text-soft leading-relaxed">{{ st.body }}</p>
+          <p class="mt-3 font-mono text-xs" class:text-brand="{{ i < 3 }}" class:text-muted="{{ i is 3 }}">{{ st.log }}</p>
+        </div>
+      </li>
+{{/each}}
+    </ol>
+  </section>
+
+  <section class="tx-container pb-6">
+    <div class="tx-panel-flat p-6 sm:p-8 grid gap-6 md:grid-cols-[auto_1fr_auto] items-center reveal">
+      <span class="group-mark w-14 h-14"></span>
+      <div>
+        <p class="tx-kicker !text-gold">Part of Ashmif Group</p>
+        <p class="mt-1.5 text-lg font-semibold tracking-tight">One group, one standard of care, across every Ashmif company.</p>
+      </div>
+      <a href="/contact?topic=partnership" class="tx-btn tx-btn-outline">Partner with us <IconArrowUpRight /></a>
+    </div>
+  </section>
+</div>

@@ -1,0 +1,207 @@
+page AdminTickets
+
+import { IconPlus, IconSearch, IconClock, IconTicket, IconUser } from "tylix-icons"
+
+title "Tickets · Ashmif console"
+
+uses
+  Auth
+  Fmt
+  Live
+  Catalog
+
+state
+  tickets: []
+  staff: []
+  clients: []
+  loading: true
+  view: "open"
+  product: ""
+  query: ""
+  newOpen: false
+  form: { user_id: "", subject: "", body: "", product: "", priority: "normal", category: "technical", source: "phone", assign_to_me: true }
+  saving: false
+  clientQuery: ""
+
+computed
+  views() {
+    const open = this.tickets.filter(t => t.status is not "resolved" and t.status is not "closed")
+    return [
+      { key: "open", label: "Open", count: open.length },
+      { key: "mine", label: "Mine", count: open.filter(t => t.assigned_to is Auth.user?.id).length },
+      { key: "unassigned", label: "Unassigned", count: open.filter(t => not t.assigned_to).length },
+      { key: "breached", label: "SLA breached", count: open.filter(t => t.sla_breached).length },
+      { key: "awaiting", label: "Awaiting client", count: open.filter(t => t.status is "awaiting_client").length },
+      { key: "done", label: "Resolved", count: this.tickets.length - open.length }
+    ]
+  }
+
+  visible() {
+    const q = this.query.trim().toLowerCase()
+    const me = Auth.user?.id
+    return this.tickets.filter(t => {
+      const isOpen = t.status is not "resolved" and t.status is not "closed"
+      if this.view is "open" and not isOpen {
+        return false
+      }
+      if this.view is "mine" and (not isOpen or t.assigned_to is not me) {
+        return false
+      }
+      if this.view is "unassigned" and (not isOpen or t.assigned_to) {
+        return false
+      }
+      if this.view is "breached" and not t.sla_breached {
+        return false
+      }
+      if this.view is "awaiting" and t.status is not "awaiting_client" {
+        return false
+      }
+      if this.view is "done" and isOpen {
+        return false
+      }
+      if this.product and t.product is not this.product {
+        return false
+      }
+      return not q or t.subject.toLowerCase().includes(q) or t.ref.toLowerCase().includes(q) or (t.company_name ?? "").toLowerCase().includes(q) or (t.requester?.name ?? "").toLowerCase().includes(q)
+    }).sort((a, b) => {
+      if a.sla_breached is not b.sla_breached {
+        return a.sla_breached ? -1 : 1
+      }
+      const rank = { urgent: 0, high: 1, normal: 2, low: 3 }
+      const pa = Number(Reflect.get(rank, a.priority) ?? 2)
+      const pb = Number(Reflect.get(rank, b.priority) ?? 2)
+      if pa is not pb and this.view is not "done" {
+        return pa - pb
+      }
+      return new Date(b.last_activity_at).getTime() - new Date(a.last_activity_at).getTime()
+    })
+  }
+
+  clientMatches() {
+    const q = this.clientQuery.trim().toLowerCase()
+    return this.clients.filter(c => not q or c.name.toLowerCase().includes(q) or (c.company_name ?? "").toLowerCase().includes(q) or c.email.toLowerCase().includes(q)).slice(0, 8)
+  }
+
+  pickedClient() {
+    return this.clients.find(c => String(c.id) is String(this.form.user_id)) ?? null
+  }
+
+action
+  async load() {
+    const r = await useApi("/api/admin/tickets")
+    if r.ok {
+      this.tickets = r.data
+    }
+    this.loading = false
+  }
+
+  async openNew() {
+    this.newOpen = true
+    if not this.clients.length {
+      const r = await useApi("/api/admin/clients")
+      if r.ok {
+        this.clients = r.data
+      }
+    }
+  }
+
+  async create() {
+    this.saving = true
+    const r = await useApi("/api/admin/tickets", { method: "POST", body: this.form })
+    this.saving = false
+    if r.ok {
+      window.location.href = `/admin/tickets/${r.data.id}`
+    } else {
+      Live.say(Live.errorOf(r, "Couldn't open the ticket."))
+    }
+  }
+
+onMount
+  async {
+    const params = new URLSearchParams(window.location.search)
+    const v = params.get("view")
+    if v {
+      this.view = v
+    }
+    await this.load()
+    if params.get("new") {
+      this.openNew()
+    }
+  }
+
+template
+<div>
+  <PageHeader title="Tickets" subtitle="Every client ticket, most urgent first.">
+    <button slot="actions" type="button" class="tx-btn tx-btn-primary" onclick="{{ openNew() }}"><IconPlus /> Ticket for a client</button>
+  </PageHeader>
+
+  <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-3 mb-4">
+    <div class="tx-tabs">
+{{#each v in views}}
+      <button type="button" class="tx-tab" class:tx-tab-active="{{ view is v.key }}" onclick="{{ view = v.key }}">{{ v.label }} <span class="{{ 'count ' + (v.key is 'breached' and v.count ? '!text-coral font-bold' : '') }}">{{ v.count }}</span></button>
+{{/each}}
+    </div>
+    <div class="flex gap-2">
+      <select class="tx-input !rounded-full !py-2 text-sm w-40" aria-label="Filter by product" bind:value="{{ product }}"><option value="">All products</option>{{#each t in Catalog.topics()}}<option value="{{ t.value }}">{{ t.label }}</option>{{/each}}</select>
+      <div class="relative flex-1 xl:w-64"><IconSearch class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" /><input class="tx-input !pl-10 !rounded-full !py-2 text-sm" placeholder="Search" aria-label="Search tickets" bind:value="{{ query }}" /></div>
+    </div>
+  </div>
+
+{{#if loading}}
+  <div class="tx-skeleton h-96"></div>
+{{#else if visible.length}}
+  <div class="tx-panel overflow-hidden">
+    <div class="tx-table-wrap">
+      <table class="tx-table">
+        <thead><tr><th>Ticket</th><th class="hidden md:table-cell">Client</th><th>Priority</th><th>Status</th><th class="hidden lg:table-cell">SLA</th><th class="hidden lg:table-cell">Owner</th><th class="hidden sm:table-cell text-right">Activity</th></tr></thead>
+        <tbody>
+{{#each t in visible}}
+          <tr data-href="1" onclick="{{ window.location.href = `/admin/tickets/${t.id}` }}">
+            <td class="min-w-[14rem]"><p class="font-semibold text-sm leading-snug">{{ t.subject }}</p><p class="text-xs text-muted mt-0.5">{{ t.ref }} · {{ t.product_name }}{{ t.source is not "portal" ? " · via " + t.source : "" }}</p></td>
+            <td class="hidden md:table-cell"><div class="flex items-center gap-2.5"><Avatar name="{{ t.requester?.name ?? '?' }}" url="{{ t.requester?.avatar_url }}" size="{{ 28 }}" /><div><p class="text-sm">{{ t.company_name ?? "—" }}</p><p class="text-xs text-muted">{{ t.requester?.name }}</p></div></div></td>
+            <td><StatusBadge value="{{ t.priority }}" /></td>
+            <td><StatusBadge value="{{ t.status }}" /></td>
+            <td class="hidden lg:table-cell whitespace-nowrap">
+{{#if t.status is "resolved" or t.status is "closed"}}<span class="text-xs text-muted">—</span>{{#else if t.first_response_at}}<span class="text-xs text-mint">Responded</span>{{#else}}<span class="{{ 'text-xs font-semibold inline-flex items-center gap-1 ' + (t.sla_breached ? 'text-coral' : 'text-peach') }}"><IconClock class="w-3.5 h-3.5" /> {{ Fmt.countdown(t.sla_due_at) }}</span>{{/if}}
+            </td>
+            <td class="hidden lg:table-cell">{{#if t.assignee}}<span class="flex items-center gap-2 text-sm"><Avatar name="{{ t.assignee.name }}" url="{{ t.assignee.avatar_url }}" size="{{ 22 }}" staff="{{ true }}" /> {{ t.assignee.name.split(" ")[0] }}</span>{{#else}}<span class="text-xs text-muted">Unassigned</span>{{/if}}</td>
+            <td class="hidden sm:table-cell text-right text-xs text-muted whitespace-nowrap">{{ Fmt.ago(t.last_activity_at) }}</td>
+          </tr>
+{{/each}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{{#else}}
+  <div class="tx-empty"><IconTicket /><p class="font-semibold">Nothing in this view</p><p class="text-sm text-muted mt-1">Nice work.</p></div>
+{{/if}}
+
+{{#if newOpen}}
+  <Modal title="Open a ticket for a client" subtitle="For issues reported by phone, email, WhatsApp or in person." onClose="{{ () => newOpen = false }}">
+    <div class="tx-field">
+      <span class="tx-label">Client</span>
+{{#if pickedClient}}
+      <div class="tx-well px-3 py-2.5 flex items-center gap-3"><IconUser class="w-4 h-4 text-brand" /><span class="flex-1 text-sm"><strong>{{ pickedClient.name }}</strong> · {{ pickedClient.company_name ?? "No company" }}</span><button type="button" class="text-xs tx-link bg-transparent border-0 cursor-pointer" onclick="{{ form.user_id = '' }}">Change</button></div>
+{{#else}}
+      <input class="tx-input" placeholder="Search by name, company or email" bind:value="{{ clientQuery }}" />
+      <div class="mt-2 max-h-48 overflow-y-auto rounded-xl border border-line">
+{{#each c in clientMatches}}
+        <button type="button" class="w-full text-left px-3 py-2 text-sm bg-transparent border-0 border-b border-line last:border-b-0 hover:bg-raised cursor-pointer" onclick="{{ form.user_id = String(c.id) }}"><strong>{{ c.name }}</strong> <span class="text-muted">· {{ c.company_name ?? "No company" }} · {{ c.email }}</span></button>
+{{#else}}
+        <p class="px-3 py-3 text-sm text-muted">No matching clients.</p>
+{{/each}}
+      </div>
+{{/if}}
+    </div>
+    <div class="tx-field"><label class="tx-label" for="nt-subj">Subject</label><input id="nt-subj" class="tx-input" bind:value="{{ form.subject }}" /></div>
+    <div class="tx-field"><label class="tx-label" for="nt-body">What did they report?</label><textarea id="nt-body" rows="4" class="tx-input" bind:value="{{ form.body }}"></textarea></div>
+    <div class="grid sm:grid-cols-3 gap-x-3">
+      <div class="tx-field"><label class="tx-label" for="nt-prod">Product</label><select id="nt-prod" class="tx-input" bind:value="{{ form.product }}"><option value="">General</option>{{#each t in Catalog.topics()}}<option value="{{ t.value }}">{{ t.label }}</option>{{/each}}</select></div>
+      <div class="tx-field"><label class="tx-label" for="nt-pri">Priority</label><select id="nt-pri" class="tx-input" bind:value="{{ form.priority }}"><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select></div>
+      <div class="tx-field"><label class="tx-label" for="nt-src">Reported via</label><select id="nt-src" class="tx-input" bind:value="{{ form.source }}"><option value="phone">Phone</option><option value="email">Email</option><option value="whatsapp">WhatsApp</option><option value="visit">Visit</option><option value="console">Other</option></select></div>
+    </div>
+    <label class="flex items-center gap-2 text-sm mb-5"><input type="checkbox" class="tx-check" bind:checked="{{ form.assign_to_me }}" /> Assign to me</label>
+    <div class="flex justify-end gap-2"><button type="button" class="tx-btn tx-btn-ghost" onclick="{{ newOpen = false }}">Cancel</button><button type="button" class="tx-btn tx-btn-primary" disabled="{{ saving or not form.user_id }}" onclick="{{ create() }}">{{ saving ? "Opening…" : "Open ticket" }}</button></div>
+  </Modal>
+{{/if}}
+</div>

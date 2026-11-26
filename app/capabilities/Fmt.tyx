@@ -1,0 +1,90 @@
+capability Fmt
+
+// Formatting shared by every page: shillings, dates, "3h ago", SLA
+// countdowns and readable labels.
+
+state
+  locale: "en-KE"
+
+action
+  money(amount, currency) {
+    const n = Number(amount ?? 0)
+    return `${currency ?? "KES"} ${n.toLocaleString("en-KE", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+  }
+
+  money2(amount, currency) {
+    const n = Number(amount ?? 0)
+    return `${currency ?? "KES"} ${n.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  }
+
+  date(value) {
+    if not value {
+      return "—"
+    }
+    return new Date(String(value)).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+  }
+
+  dateTime(value) {
+    if not value {
+      return "—"
+    }
+    return new Date(String(value)).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
+  }
+
+  ago(value) {
+    if not value {
+      return ""
+    }
+    const s = Math.round((Date.now() - new Date(String(value)).getTime()) / 1000)
+    if s < 45 {
+      return "just now"
+    }
+    if s < 3600 {
+      return `${Math.max(1, Math.round(s / 60))}m ago`
+    }
+    if s < 86400 {
+      return `${Math.round(s / 3600)}h ago`
+    }
+    if s < 86400 * 30 {
+      return `${Math.round(s / 86400)}d ago`
+    }
+    return this.date(value)
+  }
+
+  // "due in 3h 20m" / "overdue by 45m"
+  countdown(value) {
+    if not value {
+      return ""
+    }
+    const ms = new Date(String(value)).getTime() - Date.now()
+    const abs = Math.abs(ms)
+    const h = Math.floor(abs / 3600000)
+    const m = Math.floor((abs % 3600000) / 60000)
+    const text = h >= 48 ? `${Math.round(h / 24)}d` : h > 0 ? `${h}h ${m}m` : `${m}m`
+    return ms >= 0 ? `due in ${text}` : `overdue by ${text}`
+  }
+
+  label(value) {
+    const text = String(value ?? "").replace(/_/g, " ")
+    return text.charAt(0).toUpperCase() + text.slice(1)
+  }
+
+  plural(n, word) {
+    return `${n} ${word}${n is 1 ? "" : "s"}`
+  }
+
+  bytes(n) {
+    const v = Number(n ?? 0)
+    if v < 1024 {
+      return `${v} B`
+    }
+    if v < 1048576 {
+      return `${Math.round(v / 1024)} KB`
+    }
+    return `${(v / 1048576).toFixed(1)} MB`
+  }
+
+  greeting() {
+    const h = new Date().getHours()
+    return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening"
+  }

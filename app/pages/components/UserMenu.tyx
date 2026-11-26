@@ -1,0 +1,43 @@
+component UserMenu
+
+import { IconCog, IconLogout, IconGlobe, IconChevronDown, IconLayoutDashboard } from "tylix-icons"
+
+props
+  area: String
+
+uses
+  Auth
+
+state
+  open: false
+
+template
+  <div class="relative">
+    <button type="button" class="flex items-center gap-2 rounded-full pl-1 pr-2 py-1 hover:bg-raised border border-transparent hover:border-line cursor-pointer bg-transparent" aria-expanded="{{ open }}" aria-label="Account menu" onclick="{{ open = not open }}">
+{{#if Auth.user}}
+      <Avatar name="{{ Auth.user.name }}" url="{{ Auth.user.avatar_url }}" size="{{ 30 }}" staff="{{ Auth.isStaff() }}" />
+      <span class="hidden md:block text-sm font-medium text-ink max-w-[9rem] truncate">{{ Auth.firstName() }}</span>
+      <IconChevronDown class="hidden md:block w-3.5 h-3.5 text-muted" />
+{{#else}}
+      <span class="w-[30px] h-[30px] rounded-full tx-skeleton"></span>
+{{/if}}
+    </button>
+{{#if open}}
+    <div class="fixed inset-0 z-40" onclick="{{ open = false }}"></div>
+    <div class="absolute right-0 top-full mt-2 z-50 w-64 tx-panel p-1.5 fade-up">
+{{#if Auth.user}}
+      <div class="px-3 py-2.5 border-b border-line mb-1">
+        <p class="text-sm font-semibold truncate">{{ Auth.user.name }}</p>
+        <p class="text-xs text-muted truncate">{{ Auth.user.email }}</p>
+        <p class="mt-1.5"><span class="tx-badge" class:tone-gold="{{ Auth.isStaff() }}">{{ Auth.isAdmin() ? "Administrator" : Auth.isStaff() ? "Ashmif staff" : Auth.user.company?.name ?? "Client" }}</span></p>
+      </div>
+{{/if}}
+      <a href="{{ area is 'admin' ? '/admin/settings' : '/portal/settings' }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-soft hover:bg-raised hover:text-ink no-underline"><IconCog class="w-4 h-4" /> Profile & security</a>
+{{#if Auth.isStaff() and area is not "admin"}}
+      <a href="/admin" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-soft hover:bg-raised hover:text-ink no-underline"><IconLayoutDashboard class="w-4 h-4" /> Staff console</a>
+{{/if}}
+      <a href="/" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-soft hover:bg-raised hover:text-ink no-underline"><IconGlobe class="w-4 h-4" /> Ashmif website</a>
+      <button type="button" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-coral hover:bg-coral/10 bg-transparent border-0 cursor-pointer" onclick="{{ Auth.logout() }}"><IconLogout class="w-4 h-4" /> Sign out</button>
+    </div>
+{{/if}}
+  </div>

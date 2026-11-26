@@ -1,0 +1,36 @@
+component AuthFrame
+
+import { IconCheck, IconMessageCircle, IconTicket, IconReceipt, IconKanban } from "tylix-icons"
+
+// Two-panel frame for sign in, sign up and password pages: a dark brand
+// panel (always navy, both themes) and the form in the slot.
+
+props
+  heading: String
+  subheading: String
+
+template
+  <div class="relative px-4 py-10 sm:py-16">
+    <div class="absolute inset-0 bg-grid mask-fade-b pointer-events-none"></div>
+    <div class="relative mx-auto max-w-5xl grid lg:grid-cols-[1fr_1.05fr] tx-panel overflow-hidden !rounded-[28px]">
+      <aside class="relative hidden lg:flex flex-col justify-between overflow-hidden bg-[#020617] text-white p-10">
+        <div class="absolute inset-0 opacity-60" style="background-image:linear-gradient(rgba(148,163,184,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(148,163,184,0.06) 1px,transparent 1px);background-size:44px 44px"></div>
+        <div class="relative">
+          <span class="aos-mark h-11 text-[#18c192]"></span>
+          <h2 class="mt-8 text-3xl font-bold tracking-tight leading-tight">{{ heading }}</h2>
+          <p class="mt-3 text-white/70 leading-relaxed">{{ subheading }}</p>
+        </div>
+        <ul class="relative mt-10 space-y-4 text-sm">
+          <li class="flex items-center gap-3"><span class="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center"><IconMessageCircle class="w-4 h-4 text-[#18c192]" /></span> Message support from any page</li>
+          <li class="flex items-center gap-3"><span class="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center"><IconTicket class="w-4 h-4 text-[#18c192]" /></span> Tickets with response targets you can see</li>
+          <li class="flex items-center gap-3"><span class="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center"><IconReceipt class="w-4 h-4 text-[#18c192]" /></span> Invoices, receipts and M-Pesa payments</li>
+          <li class="flex items-center gap-3"><span class="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center"><IconKanban class="w-4 h-4 text-[#18c192]" /></span> Follow your projects as they're built</li>
+        </ul>
+      </aside>
+      <div class="p-6 sm:p-10 lg:p-12 flex items-center">
+        <div class="w-full max-w-sm mx-auto">
+          <slot />
+        </div>
+      </div>
+    </div>
+  </div>

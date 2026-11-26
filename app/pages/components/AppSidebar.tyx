@@ -1,0 +1,105 @@
+component AppSidebar
+
+import { IconLayoutDashboard, IconTicket, IconMessageCircle, IconPackage, IconKanban, IconReceipt, IconSparkles, IconBuildingOffice, IconBell, IconCog, IconInbox, IconUsers, IconMegaphone, IconBriefcase, IconUserGroup, IconTarget, IconActivity, IconX, IconArrowUpRight, IconPhone } from "tylix-icons"
+
+// The left navigation for the client portal (area="portal") and the
+// staff console (area="admin"). Slides in on small screens (Live.navOpen).
+
+props
+  area: String
+
+uses
+  Auth
+  Live
+
+action
+  active(href) {
+    const path = window.location.pathname
+    if href is "/portal" or href is "/admin" {
+      return path is href
+    }
+    return path is href or path.startsWith(href + "/")
+  }
+
+  close() {
+    Live.navOpen = false
+  }
+
+template
+{{#if Live.navOpen}}
+  <div class="app-scrim" onclick="{{ close() }}"></div>
+{{/if}}
+  <aside class="app-sidebar" class:app-sidebar-open="{{ Live.navOpen }}" aria-label="{{ area is 'admin' ? 'Console navigation' : 'Portal navigation' }}">
+    <div class="h-16 px-5 flex items-center justify-between border-b border-line shrink-0">
+      <BrandLogo href="{{ area is 'admin' ? '/admin' : '/portal' }}" />
+      <button type="button" class="tx-icon-btn lg:hidden" aria-label="Close menu" onclick="{{ close() }}"><IconX /></button>
+    </div>
+
+    <nav class="flex-1 overflow-y-auto pb-6">
+      <p class="px-6 pt-4 -mb-2"><span class="tx-badge" class:tone-gold="{{ area is 'admin' }}" class:tone-brand="{{ area is not 'admin' }}">{{ area is "admin" ? "Staff console" : "Client portal" }}</span></p>
+{{#if area is "admin"}}
+      <div class="app-nav-section">
+        <a href="/admin" class="app-nav-item" class:app-nav-active="{{ active('/admin') }}"><IconLayoutDashboard /> Overview</a>
+        <a href="/admin/inbox" class="app-nav-item" class:app-nav-active="{{ active('/admin/inbox') }}"><IconInbox /> Inbox{{#if Live.pulse.inbox}}<span class="app-nav-count">{{ Live.pulse.inbox }}</span>{{/if}}</a>
+        <a href="/admin/tickets" class="app-nav-item" class:app-nav-active="{{ active('/admin/tickets') }}"><IconTicket /> Tickets{{#if Live.pulse.tickets}}<span class="app-nav-count !bg-sky !text-white">{{ Live.pulse.tickets }}</span>{{/if}}</a>
+      </div>
+      <div class="app-nav-section">
+        <p class="app-nav-heading">Clients</p>
+        <a href="/admin/clients" class="app-nav-item" class:app-nav-active="{{ active('/admin/clients') }}"><IconBuildingOffice /> Companies</a>
+        <a href="/admin/services" class="app-nav-item" class:app-nav-active="{{ active('/admin/services') }}"><IconPackage /> Services & renewals</a>
+        <a href="/admin/projects" class="app-nav-item" class:app-nav-active="{{ active('/admin/projects') }}"><IconKanban /> Projects</a>
+        <a href="/admin/billing" class="app-nav-item" class:app-nav-active="{{ active('/admin/billing') }}"><IconReceipt /> Billing</a>
+      </div>
+      <div class="app-nav-section">
+        <p class="app-nav-heading">Growth</p>
+        <a href="/admin/leads" class="app-nav-item" class:app-nav-active="{{ active('/admin/leads') }}"><IconTarget /> Leads{{#if Live.pulse.leads}}<span class="app-nav-count">{{ Live.pulse.leads }}</span>{{/if}}</a>
+        <a href="/admin/careers" class="app-nav-item" class:app-nav-active="{{ active('/admin/careers') }}"><IconBriefcase /> Careers{{#if Live.pulse.applications}}<span class="app-nav-count">{{ Live.pulse.applications }}</span>{{/if}}</a>
+        <a href="/admin/broadcasts" class="app-nav-item" class:app-nav-active="{{ active('/admin/broadcasts') }}"><IconMegaphone /> Status & news</a>
+      </div>
+      <div class="app-nav-section">
+        <p class="app-nav-heading">Account</p>
+        <a href="/admin/team" class="app-nav-item" class:app-nav-active="{{ active('/admin/team') }}"><IconUserGroup /> Staff</a>
+        <a href="/admin/notifications" class="app-nav-item" class:app-nav-active="{{ active('/admin/notifications') }}"><IconBell /> Notifications{{#if Live.unread}}<span class="app-nav-count !bg-coral !text-white">{{ Live.unread }}</span>{{/if}}</a>
+        <a href="/admin/settings" class="app-nav-item" class:app-nav-active="{{ active('/admin/settings') }}"><IconCog /> Settings</a>
+      </div>
+{{#else}}
+      <div class="app-nav-section">
+        <a href="/portal" class="app-nav-item" class:app-nav-active="{{ active('/portal') }}"><IconLayoutDashboard /> Overview</a>
+        <a href="/portal/tickets" class="app-nav-item" class:app-nav-active="{{ active('/portal/tickets') }}"><IconTicket /> Support tickets</a>
+        <a href="/portal/messages" class="app-nav-item" class:app-nav-active="{{ active('/portal/messages') }}"><IconMessageCircle /> Messages{{#if Live.messagesUnread}}<span class="app-nav-count">{{ Live.messagesUnread }}</span>{{/if}}</a>
+      </div>
+      <div class="app-nav-section">
+        <p class="app-nav-heading">Your account</p>
+        <a href="/portal/services" class="app-nav-item" class:app-nav-active="{{ active('/portal/services') }}"><IconPackage /> Services</a>
+        <a href="/portal/projects" class="app-nav-item" class:app-nav-active="{{ active('/portal/projects') }}"><IconKanban /> Projects</a>
+        <a href="/portal/billing" class="app-nav-item" class:app-nav-active="{{ active('/portal/billing') }}"><IconReceipt /> Billing</a>
+        <a href="/portal/catalog" class="app-nav-item" class:app-nav-active="{{ active('/portal/catalog') }}"><IconSparkles /> Add a product</a>
+      </div>
+      <div class="app-nav-section">
+        <p class="app-nav-heading">Settings</p>
+        <a href="/portal/company" class="app-nav-item" class:app-nav-active="{{ active('/portal/company') }}"><IconBuildingOffice /> Company & team</a>
+        <a href="/portal/notifications" class="app-nav-item" class:app-nav-active="{{ active('/portal/notifications') }}"><IconBell /> Notifications{{#if Live.unread}}<span class="app-nav-count !bg-coral !text-white">{{ Live.unread }}</span>{{/if}}</a>
+        <a href="/portal/settings" class="app-nav-item" class:app-nav-active="{{ active('/portal/settings') }}"><IconCog /> Profile & security</a>
+      </div>
+{{/if}}
+    </nav>
+
+    <div class="p-3 border-t border-line shrink-0 space-y-2">
+{{#if area is not "admin" and Auth.user and Auth.user.company}}
+      <div class="rounded-2xl border border-line bg-raised/60 p-3.5">
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-sm font-semibold truncate">{{ Auth.user.company.name }}</p>
+          <StatusBadge value="{{ Auth.user.company.tier }}" />
+        </div>
+        <a href="tel:+254758839829" class="mt-2 flex items-center gap-2 text-xs text-muted hover:text-ink no-underline"><IconPhone class="w-3.5 h-3.5" /> Support line +254 758 839 829</a>
+      </div>
+{{/if}}
+{{#if Auth.user}}
+      <a href="{{ area is 'admin' ? '/admin/settings' : '/portal/settings' }}" class="flex items-center gap-3 px-2.5 py-2 rounded-xl hover:bg-raised no-underline text-ink">
+        <Avatar name="{{ Auth.user.name }}" url="{{ Auth.user.avatar_url }}" size="{{ 34 }}" staff="{{ Auth.isStaff() }}" />
+        <span class="min-w-0 flex-1"><span class="block text-sm font-semibold truncate">{{ Auth.user.name }}</span><span class="block text-[11px] text-muted truncate">{{ Auth.user.email }}</span></span>
+      </a>
+{{/if}}
+      <a href="/status" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-muted hover:bg-raised hover:text-ink no-underline"><span class="tx-live text-mint"></span> System status <IconArrowUpRight class="w-3 h-3 ml-auto" /></a>
+    </div>
+  </aside>

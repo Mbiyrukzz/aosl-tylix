@@ -1,0 +1,151 @@
+page AdminBillingEditor
+
+import { IconPlus, IconTrash, IconSave, IconEye } from "tylix-icons"
+
+title "New document · Ashmif console"
+
+uses
+  Fmt
+  Live
+
+state
+  editingId: 0
+  kind: "invoice"
+  companies: []
+  form: { company_id: "", subject: "", issued_on: "", due_on: "", currency: "KES", vat_rate: 16, notes: "" }
+  items: [{ description: "", qty: 1, unit_price: 0, taxable: true }]
+  saving: false
+  error: ""
+  presets: [
+    { description: "Website maintenance (monthly)", unit_price: 5000 },
+    { description: "Domain renewal (.co.ke, 1 year)", unit_price: 2500 },
+    { description: "Business hosting (1 year)", unit_price: 12000 },
+    { description: "Sender ID registration", unit_price: 10000 },
+    { description: "On-site training, half day", unit_price: 8000 },
+    { description: "Custom development (per day)", unit_price: 15000 }
+  ]
+
+computed
+  totals() {
+    let subtotal = 0
+    let taxable = 0
+    for const i of this.items {
+      const line = Number(i.qty or 0) * Number(i.unit_price or 0)
+      subtotal += line
+      if i.taxable {
+        taxable += line
+      }
+    }
+    const vat = taxable * Number(this.form.vat_rate or 0) / 100
+    return { subtotal, vat, total: subtotal + vat }
+  }
+
+action
+  addItem(preset) {
+    this.items = [...this.items, { description: preset ? preset.description : "", qty: 1, unit_price: preset ? preset.unit_price : 0, taxable: true }]
+  }
+
+  removeItem(i) {
+    this.items = this.items.filter((_, j) => j is not i)
+  }
+
+  async save() {
+    this.error = ""
+    if not this.form.company_id {
+      this.error = "Pick the client."
+      return null
+    }
+    const items = this.items.filter(i => i.description.trim())
+    if not items.length {
+      this.error = "Add at least one line item."
+      return null
+    }
+    this.saving = true
+    const body = { ...this.form, kind: this.kind, items }
+    const r = this.editingId ? await useApi(`/api/admin/billing/${this.editingId}`, { method: "PUT", body }) : await useApi("/api/admin/billing", { method: "POST", body })
+    this.saving = false
+    if r.ok {
+      window.location.href = `/admin/billing/${this.editingId or r.data.id}`
+    } else {
+      this.error = Live.errorOf(r, "Couldn't save.")
+    }
+  }
+
+onMount
+  async {
+    const params = new URLSearchParams(window.location.search)
+    this.kind = params.get("kind") is "quote" ? "quote" : "invoice"
+    const today = new Date()
+    this.form.issued_on = today.toISOString().slice(0, 10)
+    this.form.due_on = new Date(today.getTime() + (this.kind is "quote" ? 30 : 14) * 86400000).toISOString().slice(0, 10)
+    const company = params.get("company")
+    if company {
+      this.form.company_id = company
+    }
+    const c = await useApi("/api/admin/companies")
+    if c.ok {
+      this.companies = c.data
+    }
+    const id = Number(params.get("id"))
+    if id {
+      const r = await useApi(`/api/admin/billing/${id}`)
+      if r.ok {
+        const d = r.data.document
+        this.editingId = id
+        this.kind = d.kind
+        this.form = { company_id: String(d.company_id), subject: d.subject ?? "", issued_on: String(d.issued_on ?? "").slice(0, 10), due_on: String(d.due_on ?? "").slice(0, 10), currency: d.currency, vat_rate: d.vat_rate, notes: d.notes ?? "" }
+        this.items = d.items.map(i => ({ ...i }))
+      }
+    }
+    document.title = `${this.editingId ? "Edit" : "New"} ${this.kind is "quote" ? "quotation" : "invoice"} · Ashmif console`
+  }
+
+template
+<div>
+  <PageHeader title="{{ (editingId ? 'Edit draft ' : 'New ') + (kind is 'quote' ? 'quotation' : 'invoice') }}" subtitle="Saved as a draft. Review it, then send it to the client." back="/admin/billing" backLabel="Billing" />
+  <form class="grid gap-6 xl:grid-cols-[1fr_20rem]" onsubmit.prevent="{{ save() }}" novalidate>
+    <div class="space-y-6 min-w-0">
+{{#if error}}<div class="tx-alert tx-alert-error" role="alert"><p>{{ error }}</p></div>{{/if}}
+      <section class="tx-panel p-5 sm:p-6">
+        <div class="grid sm:grid-cols-2 gap-x-4">
+          <div class="tx-field sm:col-span-2"><label class="tx-label" for="b-co">Client</label><select id="b-co" class="tx-input" bind:value="{{ form.company_id }}"><option value="">Pick a company</option>{{#each c in companies}}<option value="{{ String(c.id) }}" selected="{{ String(c.id) is form.company_id }}">{{ c.name }}</option>{{/each}}</select></div>
+          <div class="tx-field sm:col-span-2"><label class="tx-label" for="b-subj">Subject</label><input id="b-subj" class="tx-input" placeholder="e.g. MediSynq December, Website redesign" bind:value="{{ form.subject }}" /></div>
+          <div class="tx-field"><label class="tx-label" for="b-issued">Issue date</label><input id="b-issued" type="date" class="tx-input" bind:value="{{ form.issued_on }}" /></div>
+          <div class="tx-field"><label class="tx-label" for="b-due">{{ kind is "quote" ? "Valid until" : "Due date" }}</label><input id="b-due" type="date" class="tx-input" bind:value="{{ form.due_on }}" /></div>
+        </div>
+      </section>
+      <section class="tx-panel p-5 sm:p-6">
+        <div class="flex items-center justify-between mb-4"><h2 class="font-semibold">Line items</h2><button type="button" class="tx-btn tx-btn-ghost tx-btn-sm" onclick="{{ addItem(null) }}"><IconPlus /> Add line</button></div>
+        <div class="space-y-3">
+{{#each item, i in items}}
+          <div class="tx-well p-3 grid gap-2 sm:grid-cols-[1fr_5rem_8rem_auto_auto] items-center">
+            <input class="tx-input text-sm" placeholder="Description" aria-label="Description" bind:value="{{ item.description }}" />
+            <input type="number" min="0" step="any" class="tx-input text-sm" aria-label="Quantity" bind:value="{{ item.qty }}" />
+            <input type="number" min="0" step="any" class="tx-input text-sm" aria-label="Unit price" bind:value="{{ item.unit_price }}" />
+            <label class="flex items-center gap-1.5 text-xs text-muted whitespace-nowrap"><input type="checkbox" class="tx-check" bind:checked="{{ item.taxable }}" /> VAT</label>
+            <button type="button" class="tx-icon-btn" aria-label="Remove line" onclick="{{ removeItem(i) }}"><IconTrash /></button>
+          </div>
+{{/each}}
+        </div>
+        <p class="tx-kicker mt-5 mb-2">Quick add</p>
+        <div class="flex flex-wrap gap-2">{{#each p in presets}}<button type="button" class="tx-badge cursor-pointer hover:border-brand-soft/40" onclick="{{ addItem(p) }}">+ {{ p.description }}</button>{{/each}}</div>
+      </section>
+      <section class="tx-panel p-5 sm:p-6"><label class="tx-label" for="b-notes">Notes on the document</label><textarea id="b-notes" rows="3" class="tx-input" placeholder="e.g. Payment terms, bank details, what's included" bind:value="{{ form.notes }}"></textarea></section>
+    </div>
+    <aside class="space-y-4">
+      <div class="tx-panel p-5 xl:sticky xl:top-24">
+        <div class="grid grid-cols-2 gap-3 mb-4">
+          <div><label class="tx-kicker block mb-1" for="b-cur">Currency</label><input id="b-cur" class="tx-input text-sm" bind:value="{{ form.currency }}" /></div>
+          <div><label class="tx-kicker block mb-1" for="b-vat">VAT %</label><input id="b-vat" type="number" min="0" max="100" class="tx-input text-sm" bind:value="{{ form.vat_rate }}" /></div>
+        </div>
+        <dl class="text-sm space-y-2">
+          <div class="flex justify-between"><dt class="text-muted">Subtotal</dt><dd class="tabular">{{ Fmt.money2(totals.subtotal, form.currency) }}</dd></div>
+          <div class="flex justify-between"><dt class="text-muted">VAT</dt><dd class="tabular">{{ Fmt.money2(totals.vat, form.currency) }}</dd></div>
+          <div class="flex justify-between pt-2 border-t border-line text-lg font-bold"><dt>Total</dt><dd class="tabular">{{ Fmt.money2(totals.total, form.currency) }}</dd></div>
+        </dl>
+        <button type="submit" class="tx-btn tx-btn-primary tx-btn-block mt-5" disabled="{{ saving }}"><IconSave /> {{ saving ? "Saving…" : "Save draft" }}</button>
+        <p class="text-xs text-muted mt-3 text-center">You'll preview it before sending.</p>
+      </div>
+    </aside>
+  </form>
+</div>

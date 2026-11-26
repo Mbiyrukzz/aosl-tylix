@@ -1,0 +1,12 @@
+component ProductIcon
+
+import { IconWallet, IconMobileMoney, IconStethoscope, IconMessagesSquare, IconApartment, IconShip, IconGlobe, IconServer, IconCode, IconLifeBuoy } from "tylix-icons"
+
+// The icon for a product or support area, by slug.
+
+props
+  slug: String
+  cls: String
+
+template
+{{#if slug is "payroflix"}}<IconWallet class="{{ cls }}" />{{#else if slug is "rekoncile"}}<IconMobileMoney class="{{ cls }}" />{{#else if slug is "medisynq"}}<IconStethoscope class="{{ cls }}" />{{#else if slug is "sms"}}<IconMessagesSquare class="{{ cls }}" />{{#else if slug is "smartrealtors"}}<IconApartment class="{{ cls }}" />{{#else if slug is "smartfreight"}}<IconShip class="{{ cls }}" />{{#else if slug is "tylix"}}<span class="{{ 'tylix-mark ' + (cls or '') }}"></span>{{#else if slug is "flux"}}<img src="/brand/flux-mark.svg" alt="" class="{{ (cls or '') + ' rounded-[22%]' }}" />{{#else if slug is "website"}}<IconGlobe class="{{ cls }}" />{{#else if slug is "hosting"}}<IconServer class="{{ cls }}" />{{#else if slug is "custom"}}<IconCode class="{{ cls }}" />{{#else}}<IconLifeBuoy class="{{ cls }}" />{{/if}}

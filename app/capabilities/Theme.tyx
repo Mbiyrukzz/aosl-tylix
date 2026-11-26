@@ -1,22 +1,49 @@
 capability Theme
 
+// "light", "dark" or "system" (follow the device). public/theme-boot.js
+// applies the saved choice before the first paint; this keeps it in sync.
+
 state
-  mode: "light"
+  choice: "system"
+  mode: "dark"
 
 action
+  apply() {
+    let dark = this.choice is "dark"
+    if this.choice is "system" {
+      dark = window.matchMedia("(prefers-color-scheme: dark)").matches
+    }
+    this.mode = dark ? "dark" : "light"
+    document.documentElement.classList.toggle("dark", dark)
+  }
+
+  set(choice) {
+    this.choice = choice
+    try {
+      localStorage.setItem("aos-theme", choice)
+    } catch (err) {
+      // private mode: the choice lasts for this page only
+    }
+    this.apply()
+  }
+
   toggle() {
-    this.mode = this.mode is "dark" ? "light" : "dark"
-    document.documentElement.classList.toggle("dark", this.mode is "dark")
-    localStorage.setItem("theme", this.mode)
+    this.set(this.mode is "dark" ? "light" : "dark")
   }
 
 init
   async {
-    const saved = localStorage.getItem("theme")
-    if saved {
-      this.mode = saved
-    } else {
-      this.mode = document.documentElement.classList.contains("dark") ? "dark" : "light"
+    let saved = "system"
+    try {
+      saved = localStorage.getItem("aos-theme") ?? "system"
+    } catch (err) {
+      saved = "system"
     }
-    document.documentElement.classList.toggle("dark", this.mode is "dark")
+    this.choice = saved
+    this.apply()
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+      if this.choice is "system" {
+        this.apply()
+      }
+    })
   }

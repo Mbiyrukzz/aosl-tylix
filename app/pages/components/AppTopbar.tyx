@@ -1,0 +1,41 @@
+component AppTopbar
+
+import { IconMenu, IconSearch, IconPlus } from "tylix-icons"
+
+props
+  area: String
+
+uses
+  Live
+  Auth
+
+action
+  openPalette() {
+    Live.paletteOpen = true
+    setTimeout(() => {
+      const el = document.getElementById("palette-input")
+      if el {
+        el.focus()
+      }
+    }, 30)
+  }
+
+template
+  <header class="app-topbar no-print">
+    <button type="button" class="tx-icon-btn lg:hidden" aria-label="Open menu" onclick="{{ Live.navOpen = true }}"><IconMenu /></button>
+    <button type="button" class="flex items-center gap-2.5 h-10 px-3.5 rounded-full border border-line bg-panel text-sm text-muted hover:border-line-strong cursor-pointer w-full max-w-xs" onclick="{{ openPalette() }}">
+      <IconSearch class="w-4 h-4" />
+      <span class="flex-1 text-left truncate">Search or jump to…</span>
+      <kbd class="hidden sm:inline text-[10px] border border-line rounded px-1.5 py-0.5 font-mono">Ctrl K</kbd>
+    </button>
+    <div class="ml-auto flex items-center gap-1 sm:gap-1.5">
+{{#if area is "admin"}}
+      <a href="/admin/tickets?new=1" class="tx-btn tx-btn-primary tx-btn-sm hidden md:inline-flex"><IconPlus /> New ticket</a>
+{{#else}}
+      <a href="/portal/tickets/new" class="tx-btn tx-btn-primary tx-btn-sm hidden md:inline-flex"><IconPlus /> New ticket</a>
+{{/if}}
+      <ThemeSwitch />
+      <NotificationBell allHref="{{ area is 'admin' ? '/admin/notifications' : '/portal/notifications' }}" />
+      <UserMenu area="{{ area }}" />
+    </div>
+  </header>

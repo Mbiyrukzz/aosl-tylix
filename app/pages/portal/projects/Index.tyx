@@ -1,0 +1,45 @@
+page PortalProjects
+
+import { IconKanban, IconCalendar, IconArrowRight } from "tylix-icons"
+
+title "Projects · Ashmif portal"
+
+uses
+  Fmt
+
+state
+  projects: []
+  loading: true
+
+onMount
+  async {
+    const r = await useApi("/api/portal/projects")
+    if r.ok {
+      this.projects = r.data
+    }
+    this.loading = false
+  }
+
+template
+<div>
+  <PageHeader title="Projects" subtitle="Software we're building for you, with progress you can follow." />
+{{#if loading}}
+  <div class="grid gap-4 md:grid-cols-2"><div class="tx-skeleton h-44"></div><div class="tx-skeleton h-44"></div></div>
+{{#else}}
+  <div class="grid gap-4 md:grid-cols-2">
+{{#each p in projects}}
+    <a href="{{ `/portal/projects/${p.id}` }}" class="tx-panel tx-hover p-6 no-underline text-ink flex flex-col">
+      <div class="flex items-start justify-between gap-3"><h2 class="text-lg font-bold leading-snug">{{ p.title }}</h2><StatusBadge value="{{ p.status }}" /></div>
+{{#if p.description}}<p class="mt-2 text-sm text-soft line-clamp-2">{{ p.description }}</p>{{/if}}
+      <div class="mt-5 flex items-center gap-3"><div class="tx-progress flex-1"><span style:width="{{ p.progress + '%' }}"></span></div><span class="text-sm font-semibold tabular">{{ p.progress }}%</span></div>
+      <div class="mt-4 flex items-center justify-between text-xs text-muted">
+        <span class="flex items-center gap-1.5"><IconCalendar class="w-3.5 h-3.5" /> {{ p.due_on ? "Target " + Fmt.date(p.due_on) : "No target date" }}</span>
+        <span>{{ p.milestones.filter(m => m.done).length }}/{{ p.milestones.length }} milestones</span>
+      </div>
+    </a>
+{{#else}}
+    <div class="md:col-span-2 tx-empty"><IconKanban /><p class="font-semibold">No projects yet</p><p class="text-sm text-muted mt-1">When we build something for you, you'll follow every step here.</p><a href="/portal/catalog" class="tx-btn tx-btn-primary tx-btn-sm mt-4">Start a project <IconArrowRight /></a></div>
+{{/each}}
+  </div>
+{{/if}}
+</div>

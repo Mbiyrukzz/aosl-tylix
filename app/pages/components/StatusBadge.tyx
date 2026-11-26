@@ -1,0 +1,75 @@
+component StatusBadge
+
+// One badge for every status in the app (tickets, priorities, invoices,
+// projects, services, leads, incidents), with a readable label and tone.
+
+props
+  value: String
+  dot: Boolean
+
+uses
+  Auth
+
+computed
+  info() {
+    const map = {
+      open: ["Open", "tone-sky"],
+      in_progress: ["In progress", "tone-violet"],
+      awaiting_client: [Auth.isStaff() ? "Awaiting client" : "Awaiting you", "tone-peach"],
+      resolved: ["Resolved", "tone-mint"],
+      closed: ["Closed", "tone-muted"],
+      low: ["Low", "tone-muted"],
+      normal: ["Normal", "tone-sky"],
+      high: ["High", "tone-peach"],
+      urgent: ["Urgent", "tone-coral"],
+      draft: ["Draft", "tone-muted"],
+      sent: ["Awaiting payment", "tone-sky"],
+      partial: ["Part paid", "tone-peach"],
+      paid: ["Paid", "tone-mint"],
+      overdue: ["Overdue", "tone-coral"],
+      cancelled: ["Cancelled", "tone-muted"],
+      accepted: ["Accepted", "tone-mint"],
+      declined: ["Declined", "tone-coral"],
+      converted: ["Invoiced", "tone-violet"],
+      not_started: ["Not started", "tone-muted"],
+      review: ["In review", "tone-gold"],
+      completed: ["Completed", "tone-mint"],
+      on_hold: ["On hold", "tone-peach"],
+      active: ["Active", "tone-mint"],
+      onboarding: ["Onboarding", "tone-sky"],
+      archived: ["Archived", "tone-muted"],
+      pending: ["Pending", "tone-gold"],
+      suspended: ["Suspended", "tone-coral"],
+      expired: ["Expired", "tone-coral"],
+      renewing_soon: ["Renews soon", "tone-peach"],
+      new: ["New", "tone-brand"],
+      contacted: ["Contacted", "tone-sky"],
+      qualified: ["Qualified", "tone-violet"],
+      won: ["Won", "tone-mint"],
+      lost: ["Lost", "tone-muted"],
+      reviewing: ["Reviewing", "tone-sky"],
+      shortlisted: ["Shortlisted", "tone-violet"],
+      interview: ["Interview", "tone-gold"],
+      rejected: ["Not this time", "tone-muted"],
+      hired: ["Hired", "tone-mint"],
+      investigating: ["Investigating", "tone-coral"],
+      identified: ["Identified", "tone-peach"],
+      monitoring: ["Monitoring", "tone-sky"],
+      operational: ["Operational", "tone-mint"],
+      degraded: ["Degraded", "tone-peach"],
+      outage: ["Outage", "tone-coral"],
+      maintenance: ["Maintenance", "tone-sky"],
+      platinum: ["Platinum", "tier-platinum"],
+      gold: ["Gold", "tier-gold"],
+      silver: ["Silver", "tier-silver"]
+    }
+    const hit = Reflect.get(map, String(this.value))
+    if hit {
+      return { label: hit[0], tone: hit[1] }
+    }
+    const text = String(this.value ?? "").replace(/_/g, " ")
+    return { label: text.charAt(0).toUpperCase() + text.slice(1), tone: "tone-muted" }
+  }
+
+template
+  <span class="{{ 'tx-badge ' + info.tone }}" class:tx-badge-dot="{{ dot }}">{{ info.label }}</span>

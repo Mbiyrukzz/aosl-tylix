@@ -1,0 +1,178 @@
+capability Catalog
+
+// Everything Ashmif sells, in one place: the product pages, the home
+// page, the portal's "add a product" flow and ticket forms all read it.
+// The server keeps a short copy of the slugs in app/services/catalog.ts.
+
+state
+  products: [
+    {
+      slug: "payroflix",
+      name: "Payroflix",
+      category: "HR & payroll",
+      tagline: "HR and payroll for East African teams",
+      headline: "Your whole team, from first day to last.",
+      description: "Onboarding, leave, attendance, payroll and exits in one place, with statutory deductions worked out for you. Employees handle their own requests from their phones.",
+      audience: "Employers across East Africa, from ten staff to several hundred.",
+      features: ["PAYE, NSSF, SHIF and Housing Levy returns", "Leave tracking and team calendar", "Attendance that feeds straight into pay", "Overtime at 1.5x or 2x", "Travel and expense claims with receipts", "Payslips and P9 self-service", "Onboarding and exit checklists", "Pay by mobile money or bank"],
+      url: "https://payroflix.com",
+      loginUrl: "https://payroflix.com/login",
+      domain: "payroflix.com",
+      color: "#8b5cf6",
+      pricing: "Free week, no card needed. Priced in shillings.",
+      plans: []
+    },
+    {
+      slug: "rekoncile",
+      name: "Rekoncile",
+      category: "School fees",
+      tagline: "School fees, from M-Pesa to receipt",
+      headline: "Every shilling, matched to the right student.",
+      description: "For schools that collect fees through M-Pesa Paybill or Till. Each payment is matched to a student, split across fee items, and the parent gets an SMS receipt. The school keeps its own Paybill and Rekoncile never holds the money.",
+      audience: "Primary and secondary schools, colleges and tuition centres in Kenya.",
+      features: ["M-Pesa Paybill and Till matching", "Needs-review queue with suggested students", "Balances by fee item", "M-Pesa payment prompts to parents", "Promises to pay", "Parent portal opened by SMS code", "Excel and CSV import with balances", "Installable on Android, iPhone and laptop"],
+      url: "https://rekoncile.app",
+      loginUrl: "https://rekoncile.app/login",
+      domain: "rekoncile.app",
+      color: "#e4a93c",
+      pricing: "Ask us for school pricing.",
+      plans: []
+    },
+    {
+      slug: "medisynq",
+      name: "MediSynq",
+      category: "Healthcare",
+      tagline: "Hospital and clinic management for Kenya",
+      headline: "The whole patient visit, in one system.",
+      description: "Reception, triage, consultation, lab, pharmacy and billing all work from the same patient visit, so nothing is re-typed and nobody waits on paper.",
+      audience: "Solo clinics up to multi-department hospitals and hospital groups.",
+      features: ["Live patient queue", "Triage and vitals", "ICD-11 diagnoses", "Lab and radiology", "Pharmacy and stock", "Wards and beds", "Billing with M-Pesa", "SHA claims"],
+      url: "https://mymedisynq.com",
+      loginUrl: "https://mymedisynq.com/login",
+      domain: "mymedisynq.com",
+      color: "#0ea5e9",
+      pricing: "14-day free trial, no card needed.",
+      plans: [
+        { name: "Clinic", price: "KES 7,999", period: "/month", note: "Up to 3 staff", popular: false },
+        { name: "Hospital", price: "KES 14,999", period: "/month", note: "Up to 25 staff", popular: true },
+        { name: "Group", price: "Let's talk", period: "", note: "Unlimited staff and API", popular: false }
+      ]
+    },
+    {
+      slug: "sms",
+      name: "Ashmif SMS",
+      category: "Messaging",
+      tagline: "Bulk SMS and branded Sender IDs",
+      headline: "Reach every customer, under your own name.",
+      description: "Send campaigns, reminders and alerts to thousands of phones at once, under a Sender ID registered to your business. Track delivery and see what landed in one dashboard.",
+      audience: "Schools, SACCOs, clinics, retailers and anyone who talks to customers by SMS.",
+      features: ["Bulk SMS campaigns", "Branded Sender ID registration", "Contact groups and personalised messages", "Scheduled sends", "Delivery reports", "Top up units from the portal"],
+      url: "https://sms.ashmif.com",
+      loginUrl: "https://sms.ashmif.com/login",
+      domain: "sms.ashmif.com",
+      color: "#18c192",
+      pricing: "Volume pricing. Request a Sender ID or top up from the portal.",
+      plans: []
+    },
+    {
+      slug: "smartrealtors",
+      name: "SmartRealtors",
+      category: "Property",
+      tagline: "Property management, fully automated",
+      headline: "Rent collected. Reminders sent. Evenings back.",
+      description: "Runs the repetitive parts of property management for you: rent collection, reminders, invoices, vacancy tracking and disbursement reports.",
+      audience: "Landlords, letting agencies and property managers.",
+      features: ["Automated rent collection", "Smart rent reminders", "Invoice generation", "Vacant unit tracker", "Rent balance reports", "Disbursement summaries"],
+      url: "https://smartrealtors.ashmif.com",
+      loginUrl: "https://smartrealtors.ashmif.com",
+      domain: "smartrealtors.ashmif.com",
+      color: "#f97316",
+      pricing: "Priced per portfolio. Talk to us.",
+      plans: []
+    },
+    {
+      slug: "smartfreight",
+      name: "SmartFreight",
+      category: "Logistics",
+      tagline: "Modern freight operations, simplified",
+      headline: "From intake to delivery, one system.",
+      description: "Logistics management built for freight consolidators: track shipments, generate manifests, issue bills of lading and keep every workflow in one place.",
+      audience: "Freight consolidators, clearing and forwarding agents.",
+      features: ["Manifest management", "Real-time shipment tracking", "Digital bill of lading", "Delivery orders", "Smart invoicing", "Reports and analytics"],
+      url: "https://consolidation.ashmif.com",
+      loginUrl: "https://consolidation.ashmif.com",
+      domain: "consolidation.ashmif.com",
+      color: "#6366f1",
+      pricing: "Priced per branch. Talk to us.",
+      plans: []
+    },
+    {
+      slug: "tylix",
+      name: "Tylix",
+      category: "Developer framework",
+      tagline: "Our open-source full-stack JavaScript framework",
+      headline: "Ship the feature, not the plumbing.",
+      description: "A batteries-included framework: reactive .tyx pages (or React, Vue, Svelte and Angular), a server with authentication and an ORM, background jobs, mail and observability, already wired together. Tylix Flux, the Ashmif client portal and this website are built on it.",
+      audience: "Developers and teams who want to go from idea to production without assembling a dozen libraries.",
+      features: ["Reactive .tyx pages with no virtual DOM", "React, Vue, Svelte or Angular on the same backend", "Auth with Google and GitHub sign-in built in", "One ORM for SQLite, PostgreSQL, MySQL, MariaDB, CockroachDB and MongoDB", "Validation that runs in the API and the browser", "Typed API client generated from your routes", "Queues, schedules, live channels and mail", "Generators: make:feature writes a full CRUD API"],
+      url: "https://tylix.dev",
+      loginUrl: "https://tylix.dev/docs",
+      domain: "tylix.dev",
+      color: "#3563ff",
+      pricing: "Free and open source (MIT).",
+      plans: []
+    },
+    {
+      slug: "flux",
+      name: "Tylix Flux",
+      category: "Deployment & hosting",
+      tagline: "Ship any stack, manage it all in one place",
+      headline: "Servers, deploys and domains in one dashboard.",
+      description: "Create or connect a server, deploy your app, then point the domain at it and edit its DNS from the same dashboard. Watch CPU, memory and disk live.",
+      audience: "Developers, agencies and teams running apps on their own cloud accounts.",
+      features: ["Create servers at 7 cloud providers or connect your own over SSH", "Deploy 16 stacks from Git", "Free SSL from Let's Encrypt", "Domains and DNS from 8 registrars", "Databases and database users", "Web terminal in the browser", "Live CPU, memory and disk stats", "Teams with shared access"],
+      url: "https://flux.tylix.dev",
+      loginUrl: "https://flux.tylix.dev/login",
+      domain: "flux.tylix.dev",
+      color: "#e0393f",
+      pricing: "14-day free trial for new accounts.",
+      plans: [
+        { name: "Personal", price: "$10", period: "/month", note: "3 servers · 10 sites", popular: false },
+        { name: "Pro", price: "$20", period: "/month", note: "10 servers · 50 sites · 5 members", popular: true },
+        { name: "Business", price: "$49", period: "/month", note: "30 servers · unlimited sites", popular: false }
+      ]
+    }
+  ]
+  services: [
+    { slug: "web", title: "Web apps & websites", body: "Portals, dashboards, SaaS products and company sites in Next.js, Java, PHP, Python or Tylix, built to be fast and easy to run for years." },
+    { slug: "mobile", title: "Mobile apps", body: "Android and iPhone apps in Flutter or React Native that feel right on every device, from first version to app-store release." },
+    { slug: "api", title: "Integrations & APIs", body: "M-Pesa, KRA eTIMS, SMS, email and bank integrations, plus APIs your partners can build on." },
+    { slug: "email", title: "Business email", body: "you@yourcompany.co.ke on Private Email or Spacemail: DNS set up, old mail moved over and every device connected." },
+    { slug: "hosting", title: "Hosting & domains", body: "Managed servers, .co.ke and .com domains and SSL, deployed with Tylix Flux and watched around the clock." },
+    { slug: "support", title: "Support & maintenance", body: "A support plan with response times you can count on, updates, backups and a named account manager." }
+  ]
+  areas: [
+    { value: "website", label: "Website" },
+    { value: "hosting", label: "Hosting & email" },
+    { value: "custom", label: "Custom software" },
+    { value: "other", label: "Something else" }
+  ]
+
+action
+  // Products plus the non-product areas, for ticket forms.
+  topics() {
+    return [...this.products.map(p => ({ value: p.slug, label: p.name })), ...this.areas]
+  }
+
+  find(slug) {
+    return this.products.find(p => p.slug is slug) ?? null
+  }
+
+  nameOf(slug) {
+    const p = this.products.find(x => x.slug is slug)
+    if p {
+      return p.name
+    }
+    const a = this.areas.find(x => x.value is slug)
+    return a ? a.label : "General"
+  }

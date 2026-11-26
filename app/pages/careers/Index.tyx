@@ -1,0 +1,75 @@
+page Careers
+
+import { IconArrowRight, IconMapPin, IconBriefcase, IconSparkles, IconHeart, IconRocket, IconUsers } from "tylix-icons"
+
+title "Careers · Ashmif Office Solutions"
+
+state
+  jobs: []
+  loading: true
+
+action
+  label(value) {
+    return String(value ?? "").replace(/_/g, " ").replace(/^./, c => c.toUpperCase())
+  }
+
+onMount
+  async {
+    const r = await useApi("/api/public/careers")
+    if r.ok {
+      this.jobs = r.data
+    }
+    this.loading = false
+  }
+
+template
+<div>
+  <section class="relative overflow-hidden border-b border-line">
+    <div class="absolute inset-0 bg-grid mask-fade-b"></div>
+    <div class="relative tx-container py-16 sm:py-24 text-center">
+      <p class="tx-eyebrow justify-center mb-5 fade-up">Careers</p>
+      <h1 class="fade-up fade-up-2 text-4xl sm:text-6xl font-bold tracking-tight text-balance max-w-3xl mx-auto">Build software people rely on every day</h1>
+      <p class="fade-up fade-up-3 mt-5 text-lg text-soft max-w-2xl mx-auto">Hospitals, schools, landlords and payroll teams across East Africa run on what we build. Come and make it better.</p>
+    </div>
+  </section>
+
+  <section class="tx-container py-14">
+    <div class="grid gap-4 sm:grid-cols-3 mb-14">
+      <div class="tx-panel p-6"><IconRocket class="w-6 h-6 text-brand" /><p class="mt-4 font-semibold">Real ownership</p><p class="mt-1 text-sm text-muted">Small teams, real products and your name on what ships.</p></div>
+      <div class="tx-panel p-6"><IconUsers class="w-6 h-6 text-brand" /><p class="mt-4 font-semibold">Close to customers</p><p class="mt-1 text-sm text-muted">You'll hear directly from the people using your work.</p></div>
+      <div class="tx-panel p-6"><IconHeart class="w-6 h-6 text-brand" /><p class="mt-4 font-semibold">Grow with us</p><p class="mt-1 text-sm text-muted">Mentorship, learning time and room to take on more.</p></div>
+    </div>
+
+    <h2 class="text-2xl font-bold tracking-tight mb-5">Open roles</h2>
+{{#if loading}}
+    <div class="space-y-3"><div class="tx-skeleton h-20"></div><div class="tx-skeleton h-20"></div></div>
+{{#else}}
+    <div class="grid gap-3">
+{{#each job in jobs}}
+      <a href="{{ `/careers/${job.id}` }}" class="tx-panel tx-hover p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4 justify-between no-underline text-ink">
+        <div class="min-w-0">
+          <p class="text-lg font-semibold">{{ job.title }}</p>
+{{#if job.summary}}<p class="text-sm text-muted mt-1">{{ job.summary }}</p>{{/if}}
+          <div class="mt-3 flex flex-wrap gap-2">
+            <span class="tx-badge"><IconBriefcase class="w-3 h-3" /> {{ label(job.department) }}</span>
+            <span class="tx-badge"><IconMapPin class="w-3 h-3" /> {{ job.location }}</span>
+            <span class="tx-badge tone-brand">{{ label(job.employment) }}</span>
+          </div>
+        </div>
+        <span class="tx-btn tx-btn-outline tx-btn-sm self-start sm:self-auto">View role <IconArrowRight /></span>
+      </a>
+{{#else}}
+      <div class="tx-empty">
+        <IconSparkles />
+        <p class="font-semibold">No open roles right now</p>
+        <p class="text-sm text-muted mt-1 max-w-sm">We still want to hear from great people. Send your CV and we'll be in touch when something fits.</p>
+      </div>
+{{/each}}
+    </div>
+{{/if}}
+    <div class="mt-8 tx-panel p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div><p class="font-semibold">Don't see your role?</p><p class="text-sm text-muted">Send a general application. We read every one.</p></div>
+      <a href="/careers/general" class="tx-btn tx-btn-primary">Send your CV <IconArrowRight /></a>
+    </div>
+  </section>
+</div>

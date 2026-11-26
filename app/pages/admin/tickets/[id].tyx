@@ -1,0 +1,218 @@
+page AdminTicket
+
+import { IconSend, IconPaperClip, IconFile, IconX, IconLockClosed, IconClock, IconCheckCircle, IconMail, IconPhone, IconBuildingOffice, IconStar, IconDownload, IconExternalLink } from "tylix-icons"
+
+props
+  id: string
+
+uses
+  Auth
+  Fmt
+  Live
+  Catalog
+
+state
+  ticket: null
+  replies: []
+  requester: null
+  history: []
+  staff: []
+  loading: true
+  isMissing: false
+  draft: ""
+  internal: false
+  resolveAfter: false
+  files: []
+  uploading: false
+  sending: false
+
+action
+  apply(data) {
+    this.ticket = data.ticket
+    this.replies = data.replies
+    if data.requester {
+      this.requester = data.requester
+    }
+    if data.history {
+      this.history = data.history
+    }
+    document.title = `${data.ticket.ref} · Ashmif console`
+  }
+
+  async load() {
+    const r = await useApi(`/api/admin/tickets/${this.id}`)
+    if r.ok {
+      this.apply(r.data)
+    } else {
+      this.isMissing = true
+    }
+    this.loading = false
+  }
+
+  async update(field, value) {
+    const body = {}
+    Reflect.set(body, field, value)
+    const r = await useApi(`/api/admin/tickets/${this.id}`, { method: "PUT", body })
+    if r.ok {
+      this.apply(r.data)
+      Live.say("Ticket updated")
+    } else {
+      Live.say(Live.errorOf(r, "Couldn't update."))
+    }
+  }
+
+  pick(e) {
+    for const file of (e.target.files ?? []) {
+      if file.size > 3 * 1024 * 1024 {
+        Live.say(`${file.name} is bigger than 3 MB.`)
+        continue
+      }
+      const reader = new FileReader()
+      reader.onload = async () => {
+        this.uploading = true
+        const r = await useApi("/api/uploads/file", { method: "POST", body: { data: String(reader.result), name: file.name } })
+        this.uploading = false
+        if r.ok {
+          this.files = [...this.files, r.data]
+        }
+      }
+      reader.readAsDataURL(file)
+    }
+    e.target.value = ""
+  }
+
+  removeFile(f) {
+    this.files = this.files.filter(x => x.url is not f.url)
+  }
+
+  async send() {
+    if not this.draft.trim() or this.sending {
+      return null
+    }
+    this.sending = true
+    const r = await useApi(`/api/admin/tickets/${this.id}/replies`, { method: "POST", body: { body: this.draft, internal: this.internal, attachments: this.files, resolve: this.resolveAfter and not this.internal } })
+    this.sending = false
+    if r.ok {
+      this.draft = ""
+      this.files = []
+      this.resolveAfter = false
+      this.apply(r.data)
+      Live.say(this.internal ? "Note added" : "Reply sent to the client")
+    } else {
+      Live.say(Live.errorOf(r, "Couldn't send."))
+    }
+  }
+
+  onKey(e) {
+    if (e.ctrlKey or e.metaKey) and e.key is "Enter" {
+      e.preventDefault()
+      this.send()
+    }
+  }
+
+onMount
+  async {
+    const s = await useApi("/api/admin/staff")
+    if s.ok {
+      this.staff = s.data
+    }
+    await this.load()
+  }
+
+template
+<div>
+{{#if loading}}
+  <div class="tx-skeleton h-[32rem]"></div>
+{{#else if isMissing}}
+  <div class="tx-empty"><p class="font-semibold">Ticket not found</p><a href="/admin/tickets" class="tx-btn tx-btn-primary tx-btn-sm mt-4">All tickets</a></div>
+{{#else}}
+  <PageHeader title="{{ ticket.subject }}" eyebrow="{{ ticket.ref + ' · ' + ticket.product_name + ' · via ' + ticket.source }}" back="/admin/tickets" backLabel="Tickets">
+    <span slot="actions" class="flex gap-2"><StatusBadge value="{{ ticket.status }}" dot="{{ true }}" /><StatusBadge value="{{ ticket.priority }}" /></span>
+  </PageHeader>
+
+{{#if ticket.sla_breached}}
+  <div class="tx-alert tx-alert-error mb-5"><IconClock /><p><strong>SLA breached.</strong> No first response yet; it was {{ Fmt.countdown(ticket.sla_due_at) }}. Reply to the client now.</p></div>
+{{/if}}
+
+  <div class="grid gap-6 xl:grid-cols-[1fr_20rem]">
+    <div class="min-w-0 space-y-4">
+      <article class="tx-panel p-5">
+        <div class="flex items-center gap-3"><Avatar name="{{ ticket.requester?.name ?? 'Client' }}" url="{{ ticket.requester?.avatar_url }}" size="{{ 36 }}" /><div><p class="text-sm font-semibold">{{ ticket.requester?.name }}</p><p class="text-xs text-muted">{{ Fmt.dateTime(ticket.created_at) }}</p></div></div>
+        <p class="mt-4 tx-prose">{{ ticket.body }}</p>
+{{#if ticket.attachments.length}}
+        <div class="mt-4 flex flex-wrap gap-2">{{#each f in ticket.attachments}}<a href="{{ f.url }}" target="_blank" rel="noopener" class="tx-well px-3 py-2 flex items-center gap-2 text-sm no-underline text-ink"><IconFile class="w-4 h-4 text-brand" /><span class="truncate max-w-[14rem]">{{ f.name }}</span><IconDownload class="w-3.5 h-3.5 text-muted" /></a>{{/each}}</div>
+{{/if}}
+      </article>
+
+{{#each r in replies}}
+      <article class="{{ 'p-5 rounded-[16px] border ' + (r.internal ? 'border-dashed border-gold-soft/60 bg-gold-soft/[0.07]' : r.from_staff ? 'border-brand-soft/25 bg-brand-soft/[0.04]' : 'border-line bg-panel') }}">
+        <div class="flex items-center gap-3">
+          <Avatar name="{{ r.author.name }}" url="{{ r.author.avatar_url }}" size="{{ 32 }}" staff="{{ r.from_staff }}" />
+          <div class="min-w-0 flex-1"><p class="text-sm font-semibold flex items-center gap-2">{{ r.author.name }}{{#if r.internal}}<span class="tx-badge tone-gold"><IconLockClosed class="w-3 h-3" /> Internal note</span>{{/if}}</p><p class="text-xs text-muted">{{ Fmt.dateTime(r.created_at) }}</p></div>
+        </div>
+        <p class="mt-3 tx-prose">{{ r.body }}</p>
+{{#if r.attachments.length}}
+        <div class="mt-3 flex flex-wrap gap-2">{{#each f in r.attachments}}<a href="{{ f.url }}" target="_blank" rel="noopener" class="tx-well px-3 py-2 flex items-center gap-2 text-sm no-underline text-ink"><IconFile class="w-4 h-4 text-brand" /><span class="truncate max-w-[14rem]">{{ f.name }}</span></a>{{/each}}</div>
+{{/if}}
+      </article>
+{{/each}}
+
+{{#if ticket.rating}}
+      <div class="tx-panel p-4 flex items-center gap-3"><div class="flex text-gold">{{#each n in [1, 2, 3, 4, 5]}}<IconStar class="{{ 'w-4 h-4 ' + (n <= ticket.rating ? 'fill-current' : 'opacity-30') }}" />{{/each}}</div><p class="text-sm text-soft">Client rated {{ ticket.rating }}/5{{ ticket.rating_comment ? ": “" + ticket.rating_comment + "”" : "" }}</p></div>
+{{/if}}
+
+      <div class="{{ 'tx-panel p-4 sm:p-5 ' + (internal ? '!border-gold-soft/60 !border-dashed' : '') }}">
+        <div class="tx-tabs w-fit mb-3">
+          <button type="button" class="tx-tab" class:tx-tab-active="{{ not internal }}" onclick="{{ internal = false }}"><IconSend class="w-3.5 h-3.5" /> Reply to client</button>
+          <button type="button" class="tx-tab" class:tx-tab-active="{{ internal }}" onclick="{{ internal = true }}"><IconLockClosed class="w-3.5 h-3.5" /> Internal note</button>
+        </div>
+        <textarea rows="5" class="tx-input" aria-label="{{ internal ? 'Internal note' : 'Reply' }}" placeholder="{{ internal ? 'Only Ashmif staff can see this…' : 'Write to ' + (ticket.requester?.name ?? 'the client') + '… they get it by email and in the portal' }}" bind:value="{{ draft }}" onkeydown="{{ onKey($event) }}"></textarea>
+{{#if files.length}}
+        <div class="mt-3 flex flex-wrap gap-2">{{#each f in files}}<span class="tx-well pl-3 pr-1 py-1 flex items-center gap-2 text-sm"><IconFile class="w-4 h-4 text-brand" /><span class="truncate max-w-[10rem]">{{ f.name }}</span><button type="button" class="tx-icon-btn !w-7 !h-7" aria-label="Remove" onclick="{{ removeFile(f) }}"><IconX /></button></span>{{/each}}</div>
+{{/if}}
+        <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <label class="tx-btn tx-btn-ghost tx-btn-sm cursor-pointer">{{#if uploading}}<span class="tx-spinner"></span>{{#else}}<IconPaperClip />{{/if}} Attach<input type="file" multiple class="sr-only" onchange="{{ pick($event) }}" /></label>
+{{#if not internal}}<label class="flex items-center gap-2 text-sm text-soft"><input type="checkbox" class="tx-check" bind:checked="{{ resolveAfter }}" /> and mark resolved</label>{{/if}}
+          </div>
+          <button type="button" class="{{ 'tx-btn ' + (internal ? 'tx-btn-gold' : 'tx-btn-primary') }}" disabled="{{ sending or uploading or not draft.trim() }}" onclick="{{ send() }}">{{ sending ? "Sending…" : internal ? "Add note" : "Send reply" }}</button>
+        </div>
+      </div>
+    </div>
+
+    <aside class="space-y-4">
+      <div class="tx-panel p-5 space-y-4">
+        <div><label class="tx-kicker block mb-1.5" for="tk-status">Status</label><select id="tk-status" class="tx-input text-sm" onchange="{{ update('status', $event.target.value) }}"><option value="open" selected="{{ ticket.status is 'open' }}">Open</option><option value="in_progress" selected="{{ ticket.status is 'in_progress' }}">In progress</option><option value="awaiting_client" selected="{{ ticket.status is 'awaiting_client' }}">Awaiting client</option><option value="resolved" selected="{{ ticket.status is 'resolved' }}">Resolved</option><option value="closed" selected="{{ ticket.status is 'closed' }}">Closed</option></select></div>
+        <div><label class="tx-kicker block mb-1.5" for="tk-owner">Owner</label><select id="tk-owner" class="tx-input text-sm" onchange="{{ update('assigned_to', $event.target.value) }}"><option value="" selected="{{ (ticket.assigned_to ? String(ticket.assigned_to) : '') is '' }}">Unassigned</option>{{#each s in staff}}<option value="{{ String(s.id) }}" selected="{{ String(s.id) is (ticket.assigned_to ? String(ticket.assigned_to) : '') }}">{{ s.name }}{{ s.id is Auth.user?.id ? " (me)" : "" }}</option>{{/each}}</select></div>
+        <div><label class="tx-kicker block mb-1.5" for="tk-pri">Priority</label><select id="tk-pri" class="tx-input text-sm" onchange="{{ update('priority', $event.target.value) }}"><option value="low" selected="{{ ticket.priority is 'low' }}">Low</option><option value="normal" selected="{{ ticket.priority is 'normal' }}">Normal</option><option value="high" selected="{{ ticket.priority is 'high' }}">High</option><option value="urgent" selected="{{ ticket.priority is 'urgent' }}">Urgent</option></select></div>
+        <div><label class="tx-kicker block mb-1.5" for="tk-prod">Product</label><select id="tk-prod" class="tx-input text-sm" onchange="{{ update('product', $event.target.value) }}"><option value="" selected="{{ (ticket.product ?? '') is '' }}">General</option>{{#each t in Catalog.topics()}}<option value="{{ t.value }}" selected="{{ t.value is (ticket.product ?? '') }}">{{ t.label }}</option>{{/each}}</select></div>
+        <div class="pt-2 border-t border-line text-sm">
+          <p class="tx-kicker mb-1">First response</p>
+{{#if ticket.first_response_at}}<p class="text-mint flex items-center gap-1.5"><IconCheckCircle class="w-4 h-4" /> {{ Fmt.dateTime(ticket.first_response_at) }}</p>{{#else}}<p class="flex items-center gap-1.5" class:text-coral="{{ ticket.sla_breached }}" class:text-peach="{{ not ticket.sla_breached }}"><IconClock class="w-4 h-4" /> {{ Fmt.countdown(ticket.sla_due_at) }}</p>{{/if}}
+        </div>
+{{#if not ticket.assigned_to}}<button type="button" class="tx-btn tx-btn-outline tx-btn-block tx-btn-sm" onclick="{{ update('assigned_to', String(Auth.user?.id)) }}">Take this ticket</button>{{/if}}
+      </div>
+
+      <div class="tx-panel p-5 text-sm space-y-3">
+        <p class="tx-kicker">Requester</p>
+{{#if requester}}
+        <div class="flex items-center gap-3"><Avatar name="{{ requester.name }}" url="{{ ticket.requester?.avatar_url }}" size="{{ 36 }}" /><div class="min-w-0"><p class="font-semibold truncate">{{ requester.name }}</p><p class="text-xs text-muted truncate">{{ requester.job_title ?? "" }}</p></div></div>
+        <a href="{{ 'mailto:' + requester.email }}" class="flex items-center gap-2 text-soft no-underline hover:text-ink"><IconMail class="w-4 h-4 text-muted" /> <span class="truncate">{{ requester.email }}</span></a>
+{{#if requester.phone}}<a href="{{ 'tel:' + requester.phone }}" class="flex items-center gap-2 text-soft no-underline hover:text-ink"><IconPhone class="w-4 h-4 text-muted" /> {{ requester.phone }}</a>{{/if}}
+{{/if}}
+{{#if ticket.company_id}}
+        <a href="{{ `/admin/clients/${ticket.company_id}` }}" class="flex items-center gap-2 text-soft no-underline hover:text-ink"><IconBuildingOffice class="w-4 h-4 text-muted" /> {{ ticket.company_name }} {{#if ticket.company_tier}}<StatusBadge value="{{ ticket.company_tier }}" />{{/if}}<IconExternalLink class="w-3.5 h-3.5 ml-auto text-muted" /></a>
+{{/if}}
+        <a href="{{ `/admin/inbox?client=${ticket.user_id}` }}" class="tx-btn tx-btn-ghost tx-btn-sm">Message history</a>
+      </div>
+
+{{#if history.length}}
+      <div class="tx-panel p-5">
+        <p class="tx-kicker mb-3">Other tickets from this client</p>
+        <ul class="space-y-2.5">{{#each h in history}}<li><a href="{{ `/admin/tickets/${h.id}` }}" class="flex items-center justify-between gap-2 text-sm no-underline text-ink hover:text-link"><span class="truncate">{{ h.subject }}</span><StatusBadge value="{{ h.status }}" /></a></li>{{/each}}</ul>
+      </div>
+{{/if}}
+    </aside>
+  </div>
+{{/if}}
+</div>

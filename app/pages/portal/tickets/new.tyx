@@ -1,0 +1,213 @@
+page NewTicket
+
+import { IconPaperClip, IconX, IconFile, IconSend, IconLightBulb, IconClock, IconArrowRight, IconMessageCircle } from "tylix-icons"
+
+title "New ticket · Ashmif portal"
+
+uses
+  Auth
+  Catalog
+  Live
+  Fmt
+
+state
+  form: { subject: "", body: "", product: "", category: "technical", priority: "normal" }
+  files: []
+  uploading: false
+  error: ""
+  sending: false
+  categories: [
+    { value: "technical", label: "Something isn't working" },
+    { value: "account", label: "Users, access or passwords" },
+    { value: "billing", label: "Billing or payments" },
+    { value: "feature", label: "A change or new feature" },
+    { value: "request", label: "A new service" },
+    { value: "other", label: "Something else" }
+  ]
+  priorities: [
+    { value: "low", label: "Low", hint: "Whenever you can" },
+    { value: "normal", label: "Normal", hint: "Affects some work" },
+    { value: "high", label: "High", hint: "Blocks a team" },
+    { value: "urgent", label: "Urgent", hint: "Business is stopped" }
+  ]
+
+computed
+  slaHours() {
+    const base = { platinum: 2, gold: 8, silver: 24 }
+    const factor = { urgent: 0.5, high: 0.75, normal: 1, low: 2 }
+    const tier = Auth.user?.company?.tier ?? "silver"
+    return Number(Reflect.get(base, tier) ?? 24) * Number(Reflect.get(factor, this.form.priority) ?? 1)
+  }
+
+  slaText() {
+    const h = this.slaHours
+    return h < 1 ? `${Math.round(h * 60)} minutes` : h is 1 ? "1 hour" : `${h} hours`
+  }
+
+  tip() {
+    const p = this.form.product
+    if this.form.category is "account" {
+      return "Tell us the person's name, email and what they should be able to do."
+    }
+    if p is "medisynq" {
+      return "Include the patient visit or screen where it happened, and a screenshot if you can."
+    }
+    if p is "rekoncile" {
+      return "Include the M-Pesa code and the student's admission number."
+    }
+    if p is "sms" {
+      return "Include the Sender ID, the time you sent, and a sample number that didn't receive it."
+    }
+    if p is "payroflix" {
+      return "Tell us the pay period and the employee (name or staff number) affected."
+    }
+    return "What did you expect, what happened instead, and when did it start? Screenshots help a lot."
+  }
+
+action
+  pick(e) {
+    for const file of (e.target.files ?? []) {
+      if this.files.length >= 5 {
+        this.error = "Attach up to 5 files."
+        break
+      }
+      if file.size > 3 * 1024 * 1024 {
+        this.error = `${file.name} is bigger than 3 MB.`
+        continue
+      }
+      this.upload(file)
+    }
+    e.target.value = ""
+  }
+
+  upload(file) {
+    const reader = new FileReader()
+    reader.onload = async () => {
+      this.uploading = true
+      const r = await useApi("/api/uploads/file", { method: "POST", body: { data: String(reader.result), name: file.name } })
+      this.uploading = false
+      if r.ok {
+        this.files = [...this.files, r.data]
+      } else {
+        this.error = Live.errorOf(r, `Couldn't upload ${file.name}.`)
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
+  remove(f) {
+    this.files = this.files.filter(x => x.url is not f.url)
+  }
+
+  async submit() {
+    this.error = ""
+    if this.form.subject.trim().length < 4 {
+      this.error = "Give the ticket a short title."
+      return null
+    }
+    if this.form.body.trim().length < 10 {
+      this.error = "Describe the issue in a little more detail."
+      return null
+    }
+    this.sending = true
+    const r = await useApi("/api/portal/tickets", { method: "POST", body: { ...this.form, attachments: this.files } })
+    if r.ok {
+      window.location.href = `/portal/tickets/${r.data.id}?created=1`
+      return null
+    }
+    this.sending = false
+    this.error = Live.errorOf(r, "Couldn't open the ticket. Try again.")
+  }
+
+onMount
+  {
+    const params = new URLSearchParams(window.location.search)
+    const product = params.get("product")
+    if product {
+      this.form.product = product
+    }
+    const category = params.get("category")
+    if category {
+      this.form.category = category
+    }
+  }
+
+template
+<div>
+  <PageHeader title="Open a support ticket" subtitle="The more detail you share, the faster we can fix it." back="/portal/tickets" backLabel="Tickets" />
+
+  <div class="grid gap-6 lg:grid-cols-[1fr_20rem]">
+    <form class="tx-panel p-5 sm:p-7 min-w-0" onsubmit.prevent="{{ submit() }}" novalidate>
+{{#if error}}<div class="tx-alert tx-alert-error mb-5" role="alert"><p>{{ error }}</p></div>{{/if}}
+
+      <p class="tx-label">Which product or service?</p>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-5">
+{{#each t in Catalog.topics()}}
+        <button type="button" class="{{ 'flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left text-sm cursor-pointer transition-colors ' + (form.product is t.value ? 'border-brand bg-brand-soft/10 text-ink font-semibold' : 'border-line bg-panel text-soft hover:border-line-strong') }}" onclick="{{ form.product = t.value }}">
+          <ProductIcon slug="{{ t.value }}" cls="w-4 h-4 shrink-0" />
+          <span class="truncate">{{ t.label }}</span>
+        </button>
+{{/each}}
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-x-4">
+        <div class="tx-field">
+          <label class="tx-label" for="t-cat">What kind of issue?</label>
+          <select id="t-cat" class="tx-input" bind:value="{{ form.category }}">
+{{#each c in categories}}<option value="{{ c.value }}">{{ c.label }}</option>{{/each}}
+          </select>
+        </div>
+        <div class="tx-field">
+          <label class="tx-label" for="t-subject">Title</label>
+          <input id="t-subject" class="tx-input" maxlength="200" placeholder="e.g. Payslips show the wrong NSSF amount" bind:value="{{ form.subject }}" />
+        </div>
+      </div>
+
+      <div class="tx-field">
+        <label class="tx-label" for="t-body">Details</label>
+        <textarea id="t-body" rows="7" class="tx-input" placeholder="{{ tip }}" bind:value="{{ form.body }}"></textarea>
+        <p class="tx-hint flex items-start gap-1.5"><IconLightBulb class="w-3.5 h-3.5 mt-px text-gold shrink-0" /> {{ tip }}</p>
+      </div>
+
+      <p class="tx-label">How urgent is it?</p>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
+{{#each p in priorities}}
+        <button type="button" class="{{ 'px-3 py-2.5 rounded-xl border text-left cursor-pointer transition-colors ' + (form.priority is p.value ? (p.value is 'urgent' ? 'border-coral bg-coral/10' : 'border-brand bg-brand-soft/10') : 'border-line bg-panel hover:border-line-strong') }}" onclick="{{ form.priority = p.value }}">
+          <span class="block text-sm font-semibold text-ink">{{ p.label }}</span>
+          <span class="block text-xs text-muted">{{ p.hint }}</span>
+        </button>
+{{/each}}
+      </div>
+
+      <p class="tx-label">Attachments <span class="text-muted font-normal">(screenshots, PDFs, spreadsheets · up to 5, 3 MB each)</span></p>
+      <div class="flex flex-wrap gap-2 mb-6">
+{{#each f in files}}
+        <span class="tx-well pl-3 pr-1 py-1.5 flex items-center gap-2 text-sm max-w-full"><IconFile class="w-4 h-4 text-brand shrink-0" /><span class="truncate max-w-[12rem]">{{ f.name }}</span><span class="text-xs text-muted">{{ Fmt.bytes(f.size) }}</span><button type="button" class="tx-icon-btn !w-7 !h-7" aria-label="{{ 'Remove ' + f.name }}" onclick="{{ remove(f) }}"><IconX /></button></span>
+{{/each}}
+        <label class="tx-btn tx-btn-outline tx-btn-sm cursor-pointer">
+{{#if uploading}}<span class="tx-spinner"></span> Uploading…{{#else}}<IconPaperClip /> Attach files{{/if}}
+          <input type="file" multiple class="sr-only" accept="image/*,.pdf,.doc,.docx,.xlsx,.csv,.txt" onchange="{{ pick($event) }}" />
+        </label>
+      </div>
+
+      <div class="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3 pt-5 border-t border-line">
+        <p class="text-sm text-muted flex items-center gap-2"><IconClock class="w-4 h-4 text-brand" /> We'll respond within <strong class="text-ink">{{ slaText }}</strong></p>
+        <button type="submit" class="tx-btn tx-btn-primary tx-btn-lg" disabled="{{ sending or uploading }}">{{ sending ? "Opening…" : "Open ticket" }} <IconSend /></button>
+      </div>
+    </form>
+
+    <aside class="space-y-4">
+      <div class="tx-panel p-5">
+        <p class="font-semibold">Your response target</p>
+        <p class="text-sm text-muted mt-1">Based on your <strong class="text-ink">{{ Fmt.label(Auth.user?.company?.tier ?? "silver") }}</strong> plan and the urgency you pick.</p>
+        <p class="mt-4 text-3xl font-bold tracking-tight text-brand">{{ slaText }}</p>
+        <a href="/services" class="mt-3 inline-flex items-center gap-1 text-xs tx-link">Compare support plans <IconArrowRight class="w-3 h-3" /></a>
+      </div>
+      <div class="tx-panel p-5">
+        <p class="font-semibold">Just a quick question?</p>
+        <p class="text-sm text-muted mt-1">Send a message instead. It reaches our team straight away.</p>
+        <button type="button" class="tx-btn tx-btn-outline tx-btn-sm mt-4" onclick="{{ Live.openSupport() }}"><IconMessageCircle /> Message support</button>
+      </div>
+    </aside>
+  </div>
+</div>

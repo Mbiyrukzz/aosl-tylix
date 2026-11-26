@@ -1,0 +1,9 @@
+page PortalNotifications
+
+title "Notifications · Ashmif portal"
+
+template
+<div>
+  <PageHeader title="Notifications" subtitle="Ticket replies, project updates, invoices and messages." />
+  <NotificationsPanel />
+</div>

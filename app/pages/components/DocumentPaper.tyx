@@ -1,0 +1,106 @@
+component DocumentPaper
+
+// A quotation, invoice or receipt as a printable sheet (always light, so
+// it prints and reads like paper in both themes). receipt=true shows the
+// receipt version of a paid invoice.
+
+props
+  doc: Object
+  company: Object
+  paybill: String
+  receipt: Boolean
+
+uses
+  Fmt
+
+computed
+  heading() {
+    if this.receipt {
+      return "Receipt"
+    }
+    return this.doc.kind is "quote" ? "Quotation" : "Invoice"
+  }
+
+template
+  <article class="doc-paper p-6 sm:p-10 shadow-sm">
+    <header class="flex flex-col sm:flex-row justify-between gap-6 pb-6 border-b-2 border-[#0b1220]">
+      <div class="flex items-start gap-3">
+        <span class="aos-mark h-12 text-[#0b8562]"></span>
+        <div>
+          <p class="text-lg font-bold leading-tight">Ashmif Office Solutions</p>
+          <p class="text-xs doc-muted mt-1 leading-relaxed">Mombasa, Kenya<br />hello@ashmif.com · +254 758 839 829</p>
+        </div>
+      </div>
+      <div class="sm:text-right">
+        <p class="text-2xl font-bold uppercase tracking-wide">{{ heading }}</p>
+        <p class="font-mono text-sm mt-1">{{ receipt ? doc.receipt_number : doc.number }}</p>
+{{#if receipt}}<p class="text-xs doc-muted mt-1">for invoice {{ doc.number }}</p>{{/if}}
+      </div>
+    </header>
+
+    <section class="grid sm:grid-cols-2 gap-6 py-6">
+      <div>
+        <p class="text-[11px] uppercase tracking-wider doc-muted font-semibold">{{ receipt ? "Received from" : "Bill to" }}</p>
+        <p class="mt-1.5 font-semibold">{{ company?.name ?? doc.company_name }}</p>
+        <p class="text-sm doc-muted leading-relaxed">{{ company?.address ?? "" }}{{#if company?.email}}<br />{{ company.email }}{{/if}}{{#if company?.kra_pin}}<br />KRA PIN {{ company.kra_pin }}{{/if}}</p>
+      </div>
+      <div class="sm:text-right text-sm space-y-1">
+{{#if receipt}}
+        <p><span class="doc-muted">Paid on</span> <strong>{{ Fmt.date(doc.paid_at) }}</strong></p>
+        <p><span class="doc-muted">Method</span> <strong>{{ String(doc.payment_method ?? "").toUpperCase() }}</strong></p>
+{{#if doc.payment_ref}}<p><span class="doc-muted">Reference</span> <strong class="font-mono">{{ doc.payment_ref }}</strong></p>{{/if}}
+{{#else}}
+        <p><span class="doc-muted">Issued</span> <strong>{{ Fmt.date(doc.issued_on) }}</strong></p>
+        <p><span class="doc-muted">{{ doc.kind is "quote" ? "Valid until" : "Due" }}</span> <strong>{{ Fmt.date(doc.due_on) }}</strong></p>
+{{/if}}
+{{#if doc.subject}}<p class="pt-2 font-medium">{{ doc.subject }}</p>{{/if}}
+      </div>
+    </section>
+
+    <div class="overflow-x-auto">
+      <table>
+        <thead><tr><th>Description</th><th class="!text-right">Qty</th><th class="!text-right">Unit price</th><th class="!text-right">Amount</th></tr></thead>
+        <tbody>
+{{#each item in doc.items}}
+          <tr>
+            <td>{{ item.description }}{{#if not item.taxable}} <span class="doc-muted text-xs">(no VAT)</span>{{/if}}</td>
+            <td class="text-right tabular">{{ item.qty }}</td>
+            <td class="text-right tabular">{{ Fmt.money2(item.unit_price, "") }}</td>
+            <td class="text-right tabular font-medium">{{ Fmt.money2(item.qty * item.unit_price, "") }}</td>
+          </tr>
+{{/each}}
+        </tbody>
+      </table>
+    </div>
+
+    <section class="mt-6 flex flex-col sm:flex-row justify-between gap-6">
+      <div class="text-sm max-w-sm">
+{{#if doc.kind is "invoice" and not receipt and paybill}}
+        <div class="rounded-xl border border-[#d6e4df] bg-[#f3f9f6] p-4">
+          <p class="font-semibold text-[#0b8562]">Pay with M-Pesa</p>
+          <p class="mt-1">Paybill <strong class="font-mono">{{ paybill }}</strong></p>
+          <p>Account <strong class="font-mono">{{ doc.number }}</strong></p>
+        </div>
+{{/if}}
+{{#if doc.notes}}<p class="mt-4 doc-muted whitespace-pre-wrap">{{ doc.notes }}</p>{{/if}}
+{{#if receipt}}<p class="mt-2"><span class="doc-stamp text-[#0b8562]">Paid</span></p>{{/if}}
+      </div>
+      <dl class="w-full sm:w-72 text-sm">
+        <div class="flex justify-between py-1.5"><dt class="doc-muted">Subtotal</dt><dd class="tabular">{{ Fmt.money2(doc.subtotal, doc.currency) }}</dd></div>
+        <div class="flex justify-between py-1.5"><dt class="doc-muted">VAT {{ doc.vat_rate }}%</dt><dd class="tabular">{{ Fmt.money2(doc.vat, doc.currency) }}</dd></div>
+        <div class="flex justify-between py-2.5 mt-1 border-t-2 border-[#0b1220] text-base font-bold"><dt>Total</dt><dd class="tabular">{{ Fmt.money2(doc.total, doc.currency) }}</dd></div>
+{{#if doc.amount_paid > 0 and not receipt}}
+        <div class="flex justify-between py-1.5 text-[#0b8562]"><dt>Paid</dt><dd class="tabular">− {{ Fmt.money2(doc.amount_paid, doc.currency) }}</dd></div>
+        <div class="flex justify-between py-1.5 font-bold"><dt>Balance</dt><dd class="tabular">{{ Fmt.money2(doc.balance, doc.currency) }}</dd></div>
+{{/if}}
+{{#if receipt}}
+        <div class="flex justify-between py-1.5 text-[#0b8562] font-semibold"><dt>Amount received</dt><dd class="tabular">{{ Fmt.money2(doc.amount_paid, doc.currency) }}</dd></div>
+{{/if}}
+      </dl>
+    </section>
+
+    <footer class="mt-10 pt-5 border-t border-[#e5eaf0] flex items-center justify-between gap-4 text-[11px] doc-muted">
+      <span>Thank you for your business.</span>
+      <span class="flex items-center gap-2"><span class="group-mark w-5 h-5"></span> An Ashmif Group company</span>
+    </footer>
+  </article>

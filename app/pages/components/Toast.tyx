@@ -1,0 +1,11 @@
+component Toast
+
+import { IconCheckCircle } from "tylix-icons"
+
+uses
+  Live
+
+template
+{{#if Live.toast}}
+  <div class="tx-toast" role="status" aria-live="polite"><IconCheckCircle /> {{ Live.toast }}</div>
+{{/if}}

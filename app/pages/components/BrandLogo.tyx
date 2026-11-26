@@ -1,0 +1,20 @@
+component BrandLogo
+
+// The AOS mark. On its own (navbars, sidebars) by default; withText adds
+// the "Ashmif Office Solutions" wordmark (footer, invoices).
+
+props
+  withText: Boolean
+  href: String
+  size: String
+
+template
+  <a href="{{ href or '/' }}" class="group inline-flex items-center gap-2.5 text-ink no-underline" aria-label="Ashmif Office Solutions home">
+    <span class="{{ 'aos-mark text-brand transition-transform group-hover:-translate-y-0.5 ' + (size is 'lg' ? 'h-10' : 'h-8') }}"></span>
+{{#if withText}}
+    <span class="flex flex-col leading-none">
+      <span class="text-[17px] font-bold tracking-tight">Ashmif</span>
+      <span class="mt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">Office Solutions</span>
+    </span>
+{{/if}}
+  </a>

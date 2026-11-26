@@ -1,0 +1,53 @@
+page Products
+
+import { IconArrowRight, IconArrowUpRight, IconCheck } from "tylix-icons"
+
+title "Products · Ashmif Office Solutions"
+
+uses
+  Catalog
+  Auth
+
+template
+<div>
+  <section class="relative overflow-hidden border-b border-line">
+    <div class="absolute inset-0 bg-grid mask-fade-b"></div>
+    <div class="relative tx-container py-16 sm:py-24 text-center">
+      <p class="tx-eyebrow justify-center mb-5 fade-up">Products</p>
+      <h1 class="fade-up fade-up-2 text-4xl sm:text-6xl font-bold tracking-tight text-balance max-w-4xl mx-auto">Eight products. <span class="text-brand">One team behind all of them.</span></h1>
+      <p class="fade-up fade-up-3 mt-5 text-soft text-lg max-w-2xl mx-auto">Each one is built for a real East African workflow, priced in shillings and supported from the same portal.</p>
+    </div>
+  </section>
+
+  <div class="tx-container py-10 sm:py-16 space-y-6">
+{{#each p, i in Catalog.products}}
+    <article class="tx-panel overflow-hidden grid lg:grid-cols-[1.1fr_1fr]" id="{{ p.slug }}">
+      <div class="p-6 sm:p-10">
+        <div class="flex items-center gap-3">
+          <span class="product-icon" style:background="{{ p.color + '1f' }}" style:color="{{ p.color }}"><ProductIcon slug="{{ p.slug }}" cls="w-6 h-6" /></span>
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wider" style:color="{{ p.color }}">{{ p.category }}</p>
+            <h2 class="text-2xl font-bold tracking-tight">{{ p.name }}</h2>
+          </div>
+        </div>
+        <p class="mt-5 text-lg font-semibold tracking-tight">{{ p.headline }}</p>
+        <p class="mt-2 text-soft leading-relaxed">{{ p.description }}</p>
+        <p class="mt-3 text-sm text-muted"><span class="font-semibold text-soft">For:</span> {{ p.audience }}</p>
+        <div class="mt-7 flex flex-wrap gap-3">
+          <a href="{{ `/products/${p.slug}` }}" class="tx-btn tx-btn-primary">See {{ p.name }} <IconArrowRight /></a>
+          <a href="{{ p.url }}" target="_blank" rel="noopener" class="tx-btn tx-btn-outline">{{ p.domain }} <IconArrowUpRight /></a>
+        </div>
+      </div>
+      <div class="relative p-6 sm:p-10 border-t lg:border-t-0 lg:border-l border-line bg-raised/40">
+        <p class="relative tx-kicker mb-4">What's inside</p>
+        <ul class="relative grid sm:grid-cols-2 gap-x-5 gap-y-3">
+{{#each f in p.features}}
+          <li class="flex gap-2.5 text-sm text-soft"><span class="mt-0.5 shrink-0" style:color="{{ p.color }}"><IconCheck class="w-4 h-4" /></span> {{ f }}</li>
+{{/each}}
+        </ul>
+        <p class="relative mt-6 text-sm font-medium text-ink">{{ p.pricing }}</p>
+      </div>
+    </article>
+{{/each}}
+  </div>
+</div>

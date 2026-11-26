@@ -1,0 +1,106 @@
+page AdminBilling
+
+import { IconPlus, IconSearch, IconReceipt, IconCoins, IconExclamationCircle, IconDocumentText } from "tylix-icons"
+
+title "Billing · Ashmif console"
+
+uses
+  Fmt
+
+state
+  docs: []
+  loading: true
+  kind: "invoice"
+  status: "open"
+  query: ""
+
+computed
+  visible() {
+    const q = this.query.trim().toLowerCase()
+    return this.docs.filter(d => {
+      if d.kind is not this.kind {
+        return false
+      }
+      if this.status is "open" and not (d.status is "sent" or d.status is "partial" or d.status is "draft") {
+        return false
+      }
+      if this.status is "overdue" and not d.overdue {
+        return false
+      }
+      if this.status is "paid" and d.status is not "paid" and d.status is not "accepted" and d.status is not "converted" {
+        return false
+      }
+      return not q or d.number.toLowerCase().includes(q) or d.company_name.toLowerCase().includes(q) or (d.subject ?? "").toLowerCase().includes(q)
+    })
+  }
+
+  outstanding() {
+    return this.docs.filter(d => d.kind is "invoice" and (d.status is "sent" or d.status is "partial")).reduce((s, d) => s + d.balance, 0)
+  }
+
+  overdue() {
+    return this.docs.filter(d => d.overdue).reduce((s, d) => s + d.balance, 0)
+  }
+
+  quotesOpen() {
+    return this.docs.filter(d => d.kind is "quote" and d.status is "sent").reduce((s, d) => s + d.total, 0)
+  }
+
+onMount
+  async {
+    const r = await useApi("/api/admin/billing")
+    if r.ok {
+      this.docs = r.data
+    }
+    this.loading = false
+  }
+
+template
+<div>
+  <PageHeader title="Billing" subtitle="Quotations, invoices and receipts.">
+    <span slot="actions" class="flex gap-2">
+      <a href="/admin/billing/new?kind=quote" class="tx-btn tx-btn-outline"><IconPlus /> Quotation</a>
+      <a href="/admin/billing/new?kind=invoice" class="tx-btn tx-btn-primary"><IconPlus /> Invoice</a>
+    </span>
+  </PageHeader>
+  <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6">
+    <StatCard label="Outstanding" value="{{ Fmt.money(outstanding) }}" tone="gold"><IconReceipt /></StatCard>
+    <StatCard label="Overdue" value="{{ Fmt.money(overdue) }}" tone="{{ overdue ? 'coral' : 'mint' }}"><IconExclamationCircle /></StatCard>
+    <div class="col-span-2 lg:col-span-1"><StatCard label="Open quotations" value="{{ Fmt.money(quotesOpen) }}" tone="violet"><IconDocumentText /></StatCard></div>
+  </div>
+  <div class="flex flex-col lg:flex-row gap-2 mb-4">
+    <div class="tx-tabs w-fit">
+      <button type="button" class="tx-tab" class:tx-tab-active="{{ kind is 'invoice' }}" onclick="{{ kind = 'invoice' }}">Invoices</button>
+      <button type="button" class="tx-tab" class:tx-tab-active="{{ kind is 'quote' }}" onclick="{{ kind = 'quote' }}">Quotations</button>
+    </div>
+    <div class="tx-tabs w-fit">
+      <button type="button" class="tx-tab" class:tx-tab-active="{{ status is 'open' }}" onclick="{{ status = 'open' }}">Open</button>
+{{#if kind is "invoice"}}<button type="button" class="tx-tab" class:tx-tab-active="{{ status is 'overdue' }}" onclick="{{ status = 'overdue' }}">Overdue</button>{{/if}}
+      <button type="button" class="tx-tab" class:tx-tab-active="{{ status is 'paid' }}" onclick="{{ status = 'paid' }}">{{ kind is "invoice" ? "Paid" : "Accepted" }}</button>
+      <button type="button" class="tx-tab" class:tx-tab-active="{{ status is 'all' }}" onclick="{{ status = 'all' }}">All</button>
+    </div>
+    <div class="relative lg:ml-auto lg:w-72"><IconSearch class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" /><input class="tx-input !pl-10 !rounded-full !py-2 text-sm" placeholder="Search" aria-label="Search billing" bind:value="{{ query }}" /></div>
+  </div>
+{{#if loading}}
+  <div class="tx-skeleton h-72"></div>
+{{#else}}
+  <div class="tx-panel overflow-hidden"><div class="tx-table-wrap"><table class="tx-table">
+    <thead><tr><th>Number</th><th>Client</th><th class="hidden md:table-cell">Issued</th><th class="hidden md:table-cell">{{ kind is "quote" ? "Valid until" : "Due" }}</th><th class="text-right">Total</th><th class="text-right hidden sm:table-cell">Balance</th><th>Status</th></tr></thead>
+    <tbody>
+{{#each d in visible}}
+      <tr data-href="1" onclick="{{ window.location.href = `/admin/billing/${d.id}` }}">
+        <td class="whitespace-nowrap"><p class="font-mono text-sm font-semibold">{{ d.number }}</p><p class="text-xs text-muted max-w-[14rem] truncate">{{ d.subject }}</p></td>
+        <td class="text-sm">{{ d.company_name }}</td>
+        <td class="hidden md:table-cell text-sm text-muted whitespace-nowrap">{{ Fmt.date(d.issued_on) }}</td>
+        <td class="hidden md:table-cell text-sm whitespace-nowrap" class:text-coral="{{ d.overdue }}">{{ Fmt.date(d.due_on) }}</td>
+        <td class="text-right tabular text-sm font-semibold whitespace-nowrap">{{ Fmt.money(d.total, d.currency) }}</td>
+        <td class="text-right tabular text-sm hidden sm:table-cell whitespace-nowrap">{{ d.kind is "invoice" and d.balance ? Fmt.money(d.balance, d.currency) : "—" }}</td>
+        <td><StatusBadge value="{{ d.overdue ? 'overdue' : d.status }}" /></td>
+      </tr>
+{{#else}}
+      <tr><td colspan="7" class="text-center text-sm text-muted py-10">Nothing here.</td></tr>
+{{/each}}
+    </tbody>
+  </table></div></div>
+{{/if}}
+</div>

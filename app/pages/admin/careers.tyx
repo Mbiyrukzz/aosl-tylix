@@ -1,0 +1,131 @@
+page AdminCareers
+
+import { IconPlus, IconBriefcase, IconFile, IconMail, IconPhone, IconLink, IconPencil } from "tylix-icons"
+
+title "Careers · Ashmif console"
+
+uses
+  Fmt
+  Live
+
+state
+  openings: []
+  applications: []
+  loading: true
+  tab: "applications"
+  roleOpen: false
+  editing: null
+  form: { title: "", department: "engineering", location: "Mombasa, Kenya", employment: "full_time", summary: "", description: "", requirements: "", salary: "", status: "open" }
+  selected: null
+
+action
+  async load() {
+    const r = await useApi("/api/admin/careers")
+    if r.ok {
+      this.openings = r.data.openings
+      this.applications = r.data.applications
+    }
+    this.loading = false
+  }
+
+  editRole(o) {
+    this.editing = o
+    this.form = o ? { title: o.title, department: o.department, location: o.location, employment: o.employment, summary: o.summary ?? "", description: o.description ?? "", requirements: o.requirements ?? "", salary: o.salary ?? "", status: o.status } : { title: "", department: "engineering", location: "Mombasa, Kenya", employment: "full_time", summary: "", description: "", requirements: "", salary: "", status: "open" }
+    this.roleOpen = true
+  }
+
+  async saveRole() {
+    const r = this.editing ? await useApi(`/api/admin/careers/${this.editing.id}`, { method: "PUT", body: this.form }) : await useApi("/api/admin/careers", { method: "POST", body: this.form })
+    if r.ok {
+      this.roleOpen = false
+      Live.say("Role saved")
+      await this.load()
+    } else {
+      Live.say(Live.errorOf(r, "Couldn't save."))
+    }
+  }
+
+  async setStatus(a, status) {
+    await useApi(`/api/admin/applications/${a.id}`, { method: "PUT", body: { status } })
+    a.status = status
+    Live.say("Application updated")
+    Live.tick()
+  }
+
+onMount
+  async {
+    await this.load()
+  }
+
+template
+<div>
+  <PageHeader title="Careers" subtitle="Open roles on the website and the applications they bring in.">
+    <button slot="actions" type="button" class="tx-btn tx-btn-primary" onclick="{{ editRole(null) }}"><IconPlus /> New role</button>
+  </PageHeader>
+  <div class="tx-tabs w-fit mb-4">
+    <button type="button" class="tx-tab" class:tx-tab-active="{{ tab is 'applications' }}" onclick="{{ tab = 'applications' }}">Applications <span class="count">{{ applications.length }}</span></button>
+    <button type="button" class="tx-tab" class:tx-tab-active="{{ tab is 'roles' }}" onclick="{{ tab = 'roles' }}">Roles <span class="count">{{ openings.length }}</span></button>
+  </div>
+{{#if loading}}
+  <div class="tx-skeleton h-72"></div>
+{{#else if tab is "roles"}}
+  <div class="grid gap-4 md:grid-cols-2">
+{{#each o in openings}}
+    <article class="tx-panel p-5">
+      <div class="flex items-start justify-between gap-2"><div><p class="font-semibold">{{ o.title }}</p><p class="text-xs text-muted mt-0.5">{{ Fmt.label(o.department) }} · {{ o.location }} · {{ Fmt.label(o.employment) }}</p></div><StatusBadge value="{{ o.status }}" /></div>
+      <p class="mt-3 text-sm text-soft line-clamp-2">{{ o.summary or o.description }}</p>
+      <div class="mt-4 flex items-center justify-between"><span class="text-sm text-muted">{{ Fmt.plural(o.applications, "application") }}</span><div class="flex gap-2"><a href="{{ `/careers/${o.id}` }}" target="_blank" class="tx-btn tx-btn-ghost tx-btn-sm">View</a><button type="button" class="tx-btn tx-btn-outline tx-btn-sm" onclick="{{ editRole(o) }}"><IconPencil /> Edit</button></div></div>
+    </article>
+{{#else}}
+    <div class="md:col-span-2 tx-empty"><IconBriefcase /><p class="font-semibold">No roles yet</p></div>
+{{/each}}
+  </div>
+{{#else}}
+  <div class="grid gap-6 lg:grid-cols-[1fr_24rem]">
+    <div class="tx-panel overflow-hidden min-w-0"><ul class="tx-list">
+{{#each a in applications}}
+      <li><button type="button" class="{{ 'w-full text-left px-5 py-4 flex items-center gap-4 border-0 cursor-pointer ' + (selected?.id is a.id ? 'bg-brand-soft/10' : 'bg-transparent hover:bg-raised/60') }}" onclick="{{ selected = a }}">
+        <Avatar name="{{ a.name }}" size="{{ 36 }}" />
+        <span class="min-w-0 flex-1"><span class="block text-sm font-semibold truncate">{{ a.name }}</span><span class="block text-xs text-muted truncate">{{ a.role }} · {{ Fmt.ago(a.created_at) }}</span></span>
+        <StatusBadge value="{{ a.status }}" />
+      </button></li>
+{{#else}}
+      <li class="px-5 py-10 text-center text-sm text-muted">No applications yet.</li>
+{{/each}}
+    </ul></div>
+    <aside class="min-w-0">
+{{#if selected}}
+      <div class="tx-panel p-5 lg:sticky lg:top-24 space-y-4">
+        <div><p class="font-semibold text-lg">{{ selected.name }}</p><p class="text-sm text-muted">{{ selected.role }}</p></div>
+        <div class="space-y-2 text-sm">
+          <a href="{{ 'mailto:' + selected.email }}" class="flex items-center gap-2 tx-link"><IconMail class="w-4 h-4" /> {{ selected.email }}</a>
+{{#if selected.phone}}<p class="flex items-center gap-2"><IconPhone class="w-4 h-4 text-muted" /> {{ selected.phone }}</p>{{/if}}
+{{#if selected.portfolio}}<p class="flex items-center gap-2 break-all"><IconLink class="w-4 h-4 text-muted shrink-0" /> {{ selected.portfolio }}</p>{{/if}}
+        </div>
+{{#if selected.cv_url}}<a href="{{ selected.cv_url }}" target="_blank" rel="noopener" class="tx-well px-3 py-2.5 flex items-center gap-2 text-sm no-underline text-ink"><IconFile class="w-4 h-4 text-brand" /> <span class="truncate">{{ selected.cv_name ?? "CV" }}</span></a>{{/if}}
+{{#if selected.cover_letter}}<div class="tx-well p-4 tx-prose text-sm max-h-64 overflow-y-auto">{{ selected.cover_letter }}</div>{{/if}}
+        <div><label class="tx-kicker block mb-1.5" for="ap-status">Stage</label><select id="ap-status" class="tx-input text-sm" onchange="{{ setStatus(selected, $event.target.value) }}"><option value="new" selected="{{ selected.status is 'new' }}">New</option><option value="reviewing" selected="{{ selected.status is 'reviewing' }}">Reviewing</option><option value="shortlisted" selected="{{ selected.status is 'shortlisted' }}">Shortlisted</option><option value="interview" selected="{{ selected.status is 'interview' }}">Interview</option><option value="hired" selected="{{ selected.status is 'hired' }}">Hired</option><option value="rejected" selected="{{ selected.status is 'rejected' }}">Not this time</option></select></div>
+      </div>
+{{#else}}
+      <div class="tx-empty"><p class="text-sm text-muted">Pick an application.</p></div>
+{{/if}}
+    </aside>
+  </div>
+{{/if}}
+{{#if roleOpen}}
+  <Modal title="{{ editing ? 'Edit role' : 'New role' }}" wide="{{ true }}" onClose="{{ () => roleOpen = false }}">
+    <div class="grid sm:grid-cols-2 gap-x-4">
+      <div class="tx-field sm:col-span-2"><label class="tx-label" for="r-title">Title</label><input id="r-title" class="tx-input" bind:value="{{ form.title }}" /></div>
+      <div class="tx-field"><label class="tx-label" for="r-dept">Department</label><select id="r-dept" class="tx-input" bind:value="{{ form.department }}"><option value="engineering">Engineering</option><option value="design">Design</option><option value="product">Product</option><option value="support">Support</option><option value="sales">Sales</option><option value="operations">Operations</option></select></div>
+      <div class="tx-field"><label class="tx-label" for="r-type">Type</label><select id="r-type" class="tx-input" bind:value="{{ form.employment }}"><option value="full_time">Full time</option><option value="part_time">Part time</option><option value="contract">Contract</option><option value="internship">Internship</option></select></div>
+      <div class="tx-field"><label class="tx-label" for="r-loc">Location</label><input id="r-loc" class="tx-input" bind:value="{{ form.location }}" /></div>
+      <div class="tx-field"><label class="tx-label" for="r-sal">Salary <span class="text-muted font-normal">(optional)</span></label><input id="r-sal" class="tx-input" bind:value="{{ form.salary }}" /></div>
+      <div class="tx-field sm:col-span-2"><label class="tx-label" for="r-sum">One-line summary</label><input id="r-sum" class="tx-input" bind:value="{{ form.summary }}" /></div>
+      <div class="tx-field sm:col-span-2"><label class="tx-label" for="r-desc">About the role</label><textarea id="r-desc" rows="5" class="tx-input" bind:value="{{ form.description }}"></textarea></div>
+      <div class="tx-field sm:col-span-2"><label class="tx-label" for="r-req">What they'll bring</label><textarea id="r-req" rows="4" class="tx-input" bind:value="{{ form.requirements }}"></textarea></div>
+      <div class="tx-field"><label class="tx-label" for="r-status">Status</label><select id="r-status" class="tx-input" bind:value="{{ form.status }}"><option value="open">Open (shown on the website)</option><option value="closed">Closed</option></select></div>
+    </div>
+    <div class="flex justify-end gap-2"><button type="button" class="tx-btn tx-btn-ghost" onclick="{{ roleOpen = false }}">Cancel</button><button type="button" class="tx-btn tx-btn-primary" onclick="{{ saveRole() }}">Save role</button></div>
+  </Modal>
+{{/if}}
+</div>

@@ -1,0 +1,29 @@
+component Avatar
+
+// Initials (or the photo) in a circle. Staff get the gold ring colour so
+// clients can tell who's from Ashmif at a glance.
+
+props
+  name: String
+  url: String
+  size: Number
+  staff: Boolean
+
+computed
+  initials() {
+    const parts = String(this.name ?? "?").trim().split(/\s+/)
+    return ((parts[0]?.[0] ?? "?") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase()
+  }
+
+  px() {
+    return `${this.size or 32}px`
+  }
+
+template
+  <span class="avatar" class:avatar-staff="{{ staff }}" style:width="{{ px }}" style:height="{{ px }}" style:fontSize="{{ `${Math.round((size or 32) * 0.38)}px` }}" title="{{ name }}">
+{{#if url}}
+    <img src="{{ url }}" alt="" />
+{{#else}}
+    {{ initials }}
+{{/if}}
+  </span>

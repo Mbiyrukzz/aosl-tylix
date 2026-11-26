@@ -18,6 +18,8 @@ export interface UserAttributes {
     email: string;
     password: string;
     email_verified_at: string | null;
+    role: string;
+    company_id: number | null;
     created_at: string;
     updated_at: string;
     [key: string]: unknown;
@@ -36,6 +38,14 @@ export class User extends Model {
         "email",
         "password",
         "email_verified_at",
+        "role",
+        "company_id",
+        "phone",
+        "job_title",
+        "avatar_url",
+        "notify_email",
+        "notify_sms",
+        "last_seen_at",
     ];
 
     static async all(): Promise<UserAttributes[]> {

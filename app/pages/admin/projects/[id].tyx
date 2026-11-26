@@ -1,0 +1,125 @@
+page AdminProject
+
+import { IconPencil, IconSend, IconCheckCircle, IconCircle, IconBuildingOffice, IconLockClosed } from "tylix-icons"
+
+props
+  id: string
+
+uses
+  Fmt
+  Live
+
+state
+  project: null
+  updates: []
+  staff: []
+  loading: true
+  isMissing: false
+  editOpen: false
+  update: { body: "", progress: "", status: "" }
+  posting: false
+
+action
+  async load() {
+    const r = await useApi(`/api/admin/projects/${this.id}`)
+    if r.ok {
+      this.project = r.data.project
+      this.updates = r.data.updates
+      this.update.progress = String(r.data.project.progress)
+      document.title = `${r.data.project.title} · Ashmif console`
+    } else {
+      this.isMissing = true
+    }
+    this.loading = false
+  }
+
+  async post() {
+    if not this.update.body.trim() {
+      return null
+    }
+    this.posting = true
+    const r = await useApi(`/api/admin/projects/${this.id}/updates`, { method: "POST", body: this.update })
+    this.posting = false
+    if r.ok {
+      this.update = { body: "", progress: "", status: "" }
+      Live.say("Update posted. The client's team was notified.")
+      await this.load()
+    } else {
+      Live.say(Live.errorOf(r, "Couldn't post."))
+    }
+  }
+
+  async saved() {
+    this.editOpen = false
+    Live.say("Project saved")
+    await this.load()
+  }
+
+onMount
+  async {
+    const s = await useApi("/api/admin/staff")
+    if s.ok {
+      this.staff = s.data
+    }
+    await this.load()
+  }
+
+template
+<div>
+{{#if loading}}
+  <div class="tx-skeleton h-96"></div>
+{{#else if isMissing}}
+  <div class="tx-empty"><p class="font-semibold">Project not found</p></div>
+{{#else}}
+  <PageHeader title="{{ project.title }}" back="/admin/projects" backLabel="Projects">
+    <span slot="actions" class="flex gap-2 items-center"><StatusBadge value="{{ project.status }}" /><button type="button" class="tx-btn tx-btn-outline tx-btn-sm" onclick="{{ editOpen = true }}"><IconPencil /> Edit</button></span>
+  </PageHeader>
+  <div class="grid gap-6 xl:grid-cols-[1fr_20rem]">
+    <div class="min-w-0 space-y-5">
+      <form class="tx-panel p-5" onsubmit.prevent="{{ post() }}">
+        <p class="font-semibold mb-1">Post an update</p>
+        <p class="text-xs text-muted mb-3">Everyone at {{ project.company_name }} gets it in the portal and by email.</p>
+        <textarea rows="3" class="tx-input" placeholder="What changed? What's next?" aria-label="Update" bind:value="{{ update.body }}"></textarea>
+        <div class="mt-3 flex flex-wrap items-end gap-3">
+          <div><label class="tx-kicker block mb-1" for="up-prog">Progress %</label><input id="up-prog" type="number" min="0" max="100" class="tx-input !w-24 text-sm" bind:value="{{ update.progress }}" /></div>
+          <div><label class="tx-kicker block mb-1" for="up-status">Status</label><select id="up-status" class="tx-input text-sm" bind:value="{{ update.status }}"><option value="">No change</option><option value="in_progress">In progress</option><option value="review">In review</option><option value="on_hold">On hold</option><option value="completed">Completed</option></select></div>
+          <button type="submit" class="tx-btn tx-btn-primary ml-auto" disabled="{{ posting or not update.body.trim() }}"><IconSend /> {{ posting ? "Posting…" : "Post update" }}</button>
+        </div>
+      </form>
+      <ol class="relative border-l-2 border-line ml-3 space-y-5">
+{{#each u in updates}}
+        <li class="pl-6 relative">
+          <span class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-brand border-4 border-canvas"></span>
+          <div class="tx-panel p-4">
+            <p class="text-xs text-muted flex flex-wrap items-center gap-2"><strong class="text-ink">{{ u.author?.name }}</strong> · {{ Fmt.dateTime(u.created_at) }}{{#if u.progress !== null}}<span class="tx-badge tone-brand">{{ u.progress }}%</span>{{/if}}{{#if u.status}}<StatusBadge value="{{ u.status }}" />{{/if}}</p>
+            <p class="mt-2 tx-prose text-sm">{{ u.body }}</p>
+          </div>
+        </li>
+{{#else}}
+        <li class="pl-6 text-sm text-muted">No updates yet.</li>
+{{/each}}
+      </ol>
+    </div>
+    <aside class="space-y-4">
+      <div class="tx-panel p-5 space-y-3 text-sm">
+        <a href="{{ `/admin/clients/${project.company_id}` }}" class="flex items-center gap-2 font-semibold no-underline text-ink hover:text-link"><IconBuildingOffice class="w-4 h-4 text-muted" /> {{ project.company_name }}</a>
+        <div class="flex items-center gap-3"><div class="tx-progress flex-1"><span style:width="{{ project.progress + '%' }}"></span></div><span class="font-semibold tabular">{{ project.progress }}%</span></div>
+        <p><span class="text-muted">Lead</span> {{ project.lead?.name ?? "—" }}</p>
+        <p><span class="text-muted">Start</span> {{ Fmt.date(project.starts_on) }} · <span class="text-muted">Target</span> {{ Fmt.date(project.due_on) }}</p>
+      </div>
+      <div class="tx-panel p-5">
+        <p class="font-semibold mb-3">Milestones</p>
+        <ul class="space-y-2.5">{{#each m in project.milestones}}<li class="flex items-start gap-2.5 text-sm">{{#if m.done}}<IconCheckCircle class="w-5 h-5 text-mint shrink-0" />{{#else}}<IconCircle class="w-5 h-5 text-muted shrink-0" />{{/if}}<span>{{ m.title }}{{#if m.due_on}}<span class="block text-xs text-muted">{{ Fmt.date(m.due_on) }}</span>{{/if}}</span></li>{{#else}}<li class="text-sm text-muted">None yet. Add them with Edit.</li>{{/each}}</ul>
+      </div>
+{{#if project.internal_notes}}
+      <div class="tx-panel p-5 border-dashed !border-gold-soft/60"><p class="tx-kicker mb-2 flex items-center gap-1.5"><IconLockClosed class="w-3 h-3" /> Internal notes</p><p class="tx-prose text-sm">{{ project.internal_notes }}</p></div>
+{{/if}}
+    </aside>
+  </div>
+{{#if editOpen}}
+  <Modal title="Edit project" wide="{{ true }}" onClose="{{ () => editOpen = false }}">
+    <ProjectForm project="{{ project }}" companyId="{{ project.company_id }}" companies="{{ [] }}" staff="{{ staff }}" onSaved="{{ () => saved() }}" onCancel="{{ () => editOpen = false }}" />
+  </Modal>
+{{/if}}
+{{/if}}
+</div>

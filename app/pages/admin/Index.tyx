@@ -1,0 +1,159 @@
+page AdminHome
+
+import { IconTicket, IconInbox, IconAlertOctagon, IconUserX, IconReceipt, IconCoins, IconCalendarClock, IconStar, IconTarget, IconBriefcase, IconBuildingOffice, IconClock, IconArrowRight, IconChartBar } from "tylix-icons"
+
+title "Overview · Ashmif console"
+
+uses
+  Auth
+  Fmt
+  Live
+
+state
+  data: null
+  loading: true
+
+computed
+  maxVolume() {
+    if not this.data {
+      return 1
+    }
+    return Math.max(1, ...this.data.volume.map(v => Math.max(v.opened, v.resolved)))
+  }
+
+  maxProduct() {
+    if not this.data or not this.data.by_product.length {
+      return 1
+    }
+    return Math.max(...this.data.by_product.map(p => p.count))
+  }
+
+action
+  dayLabel(d) {
+    return new Date(String(d)).toLocaleDateString("en-GB", { day: "numeric" })
+  }
+
+  async load() {
+    const r = await useApi("/api/admin/overview")
+    if r.ok {
+      this.data = r.data
+    }
+    this.loading = false
+  }
+
+onMount
+  async {
+    await this.load()
+    setInterval(() => {
+      if not document.hidden {
+        this.load()
+      }
+    }, 60000)
+  }
+
+template
+<div>
+  <PageHeader title="{{ Fmt.greeting() + ', ' + Auth.firstName() }}" subtitle="Here's what needs attention across Ashmif clients today.">
+    <a slot="actions" href="/admin/inbox" class="tx-btn tx-btn-outline"><IconInbox /> Open inbox</a>
+  </PageHeader>
+{{#if loading}}
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6"><div class="tx-skeleton h-28"></div><div class="tx-skeleton h-28"></div><div class="tx-skeleton h-28"></div><div class="tx-skeleton h-28"></div></div>
+  <div class="tx-skeleton h-72"></div>
+{{#else if data}}
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
+    <StatCard label="Open tickets" value="{{ String(data.stats.open) }}" hint="{{ data.stats.mine + ' assigned to you' }}" tone="sky" href="/admin/tickets"><IconTicket /></StatCard>
+    <StatCard label="SLA breached" value="{{ String(data.stats.breached) }}" hint="No first response in time" tone="{{ data.stats.breached ? 'coral' : 'mint' }}" href="/admin/tickets?view=breached"><IconAlertOctagon /></StatCard>
+    <StatCard label="Unread conversations" value="{{ String(data.stats.unread_threads) }}" hint="Quick support messages" tone="{{ data.stats.unread_threads ? 'peach' : 'brand' }}" href="/admin/inbox"><IconInbox /></StatCard>
+    <StatCard label="Unassigned" value="{{ String(data.stats.unassigned) }}" hint="Waiting for an owner" tone="violet" href="/admin/tickets?view=unassigned"><IconUserX /></StatCard>
+  </div>
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+    <StatCard label="Outstanding" value="{{ Fmt.money(data.stats.outstanding) }}" hint="{{ data.stats.overdue + ' overdue invoices' }}" tone="{{ data.stats.overdue ? 'coral' : 'gold' }}" href="/admin/billing"><IconReceipt /></StatCard>
+    <StatCard label="Collected this month" value="{{ Fmt.money(data.stats.collected_this_month) }}" tone="mint" href="/admin/billing"><IconCoins /></StatCard>
+    <StatCard label="Renewals in 30 days" value="{{ String(data.stats.renewals_30d) }}" tone="peach" href="/admin/services"><IconCalendarClock /></StatCard>
+    <StatCard label="Satisfaction" value="{{ data.stats.csat ? data.stats.csat + ' / 5' : '—' }}" hint="{{ data.stats.avg_first_response_hours !== null ? 'Avg first reply ' + data.stats.avg_first_response_hours + 'h' : data.stats.csat ? 'From client ratings' : 'No ratings yet' }}" tone="gold"><IconStar /></StatCard>
+  </div>
+
+  <div class="grid gap-6 xl:grid-cols-[1.6fr_1fr] mb-6">
+    <section class="tx-panel p-5 min-w-0">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="font-semibold flex items-center gap-2"><IconChartBar class="w-4 h-4 text-brand" /> Tickets, last 14 days</h2>
+        <div class="flex items-center gap-4 text-xs text-muted"><span class="flex items-center gap-1.5"><i class="w-2.5 h-2.5 rounded-sm bg-sky"></i> Opened</span><span class="flex items-center gap-1.5"><i class="w-2.5 h-2.5 rounded-sm bg-brand"></i> Resolved</span></div>
+      </div>
+      <div class="flex items-end gap-1.5 sm:gap-2 h-44" role="img" aria-label="Bar chart of tickets opened and resolved per day">
+{{#each v in data.volume}}
+        <div class="flex-1 flex flex-col items-center gap-1.5 min-w-0 h-full justify-end" title="{{ v.day + ': ' + v.opened + ' opened, ' + v.resolved + ' resolved' }}">
+          <div class="w-full flex items-end justify-center gap-0.5 flex-1">
+            <span class="w-1/2 max-w-3 rounded-t bg-sky/80" style:height="{{ Math.max(2, (v.opened / maxVolume) * 100) + '%' }}"></span>
+            <span class="w-1/2 max-w-3 rounded-t bg-brand" style:height="{{ Math.max(2, (v.resolved / maxVolume) * 100) + '%' }}"></span>
+          </div>
+          <span class="text-[10px] text-muted tabular">{{ dayLabel(v.day) }}</span>
+        </div>
+{{/each}}
+      </div>
+    </section>
+    <section class="tx-panel p-5 min-w-0">
+      <h2 class="font-semibold mb-4">Open tickets by product</h2>
+{{#if data.by_product.length}}
+      <ul class="space-y-3">
+{{#each p in data.by_product}}
+        <li>
+          <div class="flex justify-between text-sm mb-1"><span>{{ p.name }}</span><span class="text-muted tabular">{{ p.count }}</span></div>
+          <div class="tx-progress"><span style:width="{{ (p.count / maxProduct) * 100 + '%' }}"></span></div>
+        </li>
+{{/each}}
+      </ul>
+{{#else}}
+      <p class="text-sm text-muted">No open tickets. 🎉</p>
+{{/if}}
+    </section>
+  </div>
+
+  <div class="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
+    <section class="tx-panel overflow-hidden min-w-0">
+      <div class="px-5 py-4 border-b border-line flex items-center justify-between"><h2 class="font-semibold">Queue, most urgent first</h2><a href="/admin/tickets" class="text-sm tx-link">All tickets</a></div>
+{{#if data.queue.length}}
+      <ul class="tx-list">
+{{#each t in data.queue}}
+        <li>
+          <a href="{{ `/admin/tickets/${t.id}` }}" class="flex items-center gap-4 px-5 py-3.5 hover:bg-raised/60 no-underline text-ink">
+            <span class="min-w-0 flex-1">
+              <span class="flex items-center gap-2"><span class="text-sm font-semibold truncate">{{ t.subject }}</span>{{#if t.priority is "urgent" or t.priority is "high"}}<StatusBadge value="{{ t.priority }}" />{{/if}}</span>
+              <span class="block text-xs text-muted mt-0.5">{{ t.ref }} · {{ t.company_name ?? "No company" }} · {{ t.product_name }}</span>
+            </span>
+            <span class="hidden sm:flex flex-col items-end gap-1 shrink-0">
+{{#if t.first_response_at}}<StatusBadge value="{{ t.status }}" />{{#else}}<span class="{{ 'text-xs font-semibold flex items-center gap-1 ' + (t.sla_breached ? 'text-coral' : 'text-peach') }}"><IconClock class="w-3.5 h-3.5" /> {{ Fmt.countdown(t.sla_due_at) }}</span>{{/if}}
+              <span class="text-[11px] text-muted">{{ t.assignee ? t.assignee.name : "Unassigned" }}</span>
+            </span>
+          </a>
+        </li>
+{{/each}}
+      </ul>
+{{#else}}
+      <p class="px-5 py-8 text-sm text-muted text-center">The queue is empty.</p>
+{{/if}}
+    </section>
+    <div class="space-y-6 min-w-0">
+      <section class="tx-panel overflow-hidden">
+        <div class="px-5 py-4 border-b border-line flex items-center justify-between"><h2 class="font-semibold">Renewals due</h2><a href="/admin/services" class="text-sm tx-link">Services</a></div>
+{{#if data.renewals.length}}
+        <ul class="tx-list">
+{{#each s in data.renewals}}
+          <li class="px-5 py-3 flex items-center gap-3">
+            <span class="min-w-0 flex-1"><span class="block text-sm font-semibold truncate">{{ s.name }}</span><span class="block text-xs text-muted truncate">{{ s.company_name }} · {{ Fmt.date(s.renews_on) }}</span></span>
+            <span class="{{ 'tx-badge ' + (s.days_left < 0 ? 'tone-coral' : s.days_left <= 7 ? 'tone-peach' : 'tone-sky') }}">{{ s.days_left < 0 ? "Expired" : s.days_left + "d" }}</span>
+          </li>
+{{/each}}
+        </ul>
+{{#else}}
+        <p class="px-5 py-6 text-sm text-muted">Nothing renews in the next 30 days.</p>
+{{/if}}
+      </section>
+      <section class="grid grid-cols-3 gap-3">
+        <a href="/admin/leads" class="tx-panel tx-hover p-4 no-underline text-ink"><IconTarget class="w-4 h-4 text-brand" /><p class="mt-2 text-xl font-bold tabular">{{ data.stats.new_leads }}</p><p class="text-[11px] text-muted">new leads</p></a>
+        <a href="/admin/careers" class="tx-panel tx-hover p-4 no-underline text-ink"><IconBriefcase class="w-4 h-4 text-brand" /><p class="mt-2 text-xl font-bold tabular">{{ data.stats.new_applications }}</p><p class="text-[11px] text-muted">applications</p></a>
+        <a href="/admin/clients" class="tx-panel tx-hover p-4 no-underline text-ink"><IconBuildingOffice class="w-4 h-4 text-brand" /><p class="mt-2 text-xl font-bold tabular">{{ data.stats.companies }}</p><p class="text-[11px] text-muted">clients</p></a>
+      </section>
+    </div>
+  </div>
+{{/if}}
+</div>

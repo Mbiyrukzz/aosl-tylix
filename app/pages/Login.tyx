@@ -1,187 +1,131 @@
 page Login
 
-import { IconCheck } from "tylix-icons"
-import OAuthButtons from "./components/OAuthButtons"
+import { IconArrowRight, IconEye, IconEyeSlash, IconMail } from "tylix-icons"
 
-title "Log in"
+title "Sign in · Ashmif"
 
 needs
   Auth
 
+uses
+  Live
+
 state
   email: ""
   password: ""
-  remember: false
+  remember: true
+  show: false
   error: ""
+  notice: ""
+  unverified: false
   submitting: false
-  perks: [
-    "Manage your posts from one dashboard",
-    "Upload cover images for every post",
-    "Your session refreshes automatically"
-  ]
+  resent: false
 
 action
-  setField(field, value) {
-    this[field] = value
-  }
-
-  toggleRemember() {
-    this.remember = not this.remember
-  }
-
-  validate() {
-    if not /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.email) {
-      return "Enter a valid email address."
-    }
-    if this.password.length is 0 {
-      return "Enter your password."
-    }
-    return ""
-  }
-
-  messageFor(result) {
-    switch result.status {
-      case 401, 403 {
-        return "Invalid email or password."
-      }
-      case 422 {
-        const errors = result.data?.errors
-        if errors {
-          const firstField = Object.keys(errors)[0]
-          return errors[firstField][0]
-        }
-        return "Check your details and try again."
-      }
-      case 429 {
-        return "Too many attempts. Wait a minute and try again."
-      }
-      default {
-        return result.error ?? "Could not log in. Try again."
-      }
-    }
+  nextUrl() {
+    const next = new URLSearchParams(window.location.search).get("next") ?? ""
+    return next.startsWith("/") and not next.startsWith("//") ? next : Auth.home()
   }
 
   async submit() {
     if this.submitting {
       return null
     }
-
-    this.error = this.validate()
-    if this.error {
+    this.error = ""
+    this.unverified = false
+    if not /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.email) {
+      this.error = "Enter a valid email address."
       return null
     }
-
-    this.submitting = true
-    let succeeded = false
-
-    try {
-      const result = await Auth.login(this.email, this.password)
-
-      if result.ok {
-        succeeded = true
-        window.location.href = "/dashboard"
-      } else {
-        this.error = this.messageFor(result)
-      }
-    } catch (err) {
-      this.error = "Network error. Check your connection and try again."
-    } finally {
-      if not succeeded {
-        this.submitting = false
-      }
+    if not this.password {
+      this.error = "Enter your password."
+      return null
     }
+    this.submitting = true
+    const r = await Auth.login(this.email, this.password, this.remember)
+    if r.ok {
+      window.location.href = this.nextUrl()
+      return null
+    }
+    this.submitting = false
+    if r.data?.code is "EMAIL_NOT_VERIFIED" {
+      this.unverified = true
+      this.error = "Please verify your email first. Check your inbox for the link."
+    } else if r.status is 401 {
+      this.error = "That email and password don't match."
+    } else {
+      this.error = Live.errorOf(r, "Couldn't sign in. Try again.")
+    }
+  }
+
+  async resend() {
+    await useApi("/api/auth/resend-verification", { method: "POST", body: { email: this.email } })
+    this.resent = true
   }
 
 onMount
   {
     if Auth.user {
-      window.location.href = "/dashboard"
+      window.location.href = this.nextUrl()
+      return null
+    }
+    const params = new URLSearchParams(window.location.search)
+    if params.get("registered") {
+      this.notice = "Account created. Check your email for the verification link, then sign in."
+    }
+    if params.get("reset") {
+      this.notice = "Password updated. Sign in with your new password."
     }
   }
 
 template
-  <div class="flex items-center justify-center px-6 py-16">
-    <div class="tx-auth tx-glow">
+  <AuthFrame heading="Welcome back to your portal" subheading="Everything about your account with Ashmif Office Solutions, in one place.">
+    <div class="lg:hidden mb-8"><BrandLogo /></div>
+    <h1 class="text-2xl font-bold tracking-tight">Sign in</h1>
+    <p class="text-sm text-muted mt-1 mb-7">Clients and Ashmif staff sign in here.</p>
 
-      <div class="tx-auth-aside">
-        <p class="tx-eyebrow mb-5">Signed-in session</p>
-        <h2 class="text-2xl font-semibold tracking-tight mb-3">Welcome back</h2>
-        <p class="text-sm text-muted mb-8 leading-relaxed">Log in to pick up where you left off.</p>
-        <ul class="space-y-3">
-{{#each perk in perks}}
-          <li class="flex items-start gap-2.5 text-sm text-soft">
-            <IconCheck class="w-4 h-4 mt-0.5 text-mint shrink-0" />
-            {{ perk }}
-          </li>
-{{/each}}
-        </ul>
-      </div>
-
-      <div class="tx-auth-form">
-        <div class="w-full max-w-sm">
-          <h1 class="text-2xl font-semibold tracking-tight mb-1">Log in</h1>
-          <p class="text-sm text-muted mb-8">Continue to your dashboard.</p>
-
-{{#if error}}
-          <div role="alert" aria-live="polite" class="tx-alert tx-alert-error mb-6">
-            <p class="text-sm">{{ error }}</p>
-          </div>
+{{#if notice}}
+    <div class="tx-alert tx-alert-success mb-5" role="status"><p>{{ notice }}</p></div>
 {{/if}}
-
-          <OAuthButtons returnTo="{{ '/dashboard' }}" />
-
-          <label for="email" class="tx-label">Email</label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autocomplete="email"
-            autofocus
-            placeholder="you@example.com"
-            value="{{ email }}"
-            oninput="{{ setField('email', event.target.value) }}"
-            onkeydown="{{ event.key is 'Enter' and submit() }}"
-            class="tx-input"
-          />
-
-          <label for="password" class="tx-label">Password</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autocomplete="current-password"
-            placeholder="••••••••"
-            value="{{ password }}"
-            oninput="{{ setField('password', event.target.value) }}"
-            onkeydown="{{ event.key is 'Enter' and submit() }}"
-            class="tx-input"
-          />
-
-          <div class="flex items-center justify-between mb-6">
-            <label class="flex items-center gap-2 text-sm text-muted">
-              <input
-                type="checkbox"
-                checked="{{ remember }}"
-                onclick="{{ toggleRemember() }}"
-                class="rounded border-line-strong bg-canvas text-mint focus:ring-aqua"
-              />
-              Remember me
-            </label>
-            <a href="/forgot-password" class="text-sm tx-link">Forgot password?</a>
-          </div>
-
-          <button
-            onclick="{{ submit() }}"
-            disabled="{{ submitting }}"
-            class="tx-btn tx-btn-primary tx-btn-block"
-          >
-            {{ submitting ? 'Logging in…' : 'Log in' }}
-          </button>
-
-          <p class="text-sm text-muted text-center mt-6">
-            Need an account? <a href="/register" class="tx-link">Sign up</a>
-          </p>
-        </div>
+{{#if error}}
+    <div class="tx-alert tx-alert-error mb-5" role="alert">
+      <div>
+        <p>{{ error }}</p>
+{{#if unverified}}
+{{#if resent}}
+        <p class="mt-1 text-xs">A new link is on its way.</p>
+{{#else}}
+        <button type="button" class="mt-1.5 text-xs font-semibold underline bg-transparent border-0 p-0 cursor-pointer text-inherit" onclick="{{ resend() }}">Send the link again</button>
+{{/if}}
+{{/if}}
       </div>
     </div>
-  </div>
+{{/if}}
+
+    <OAuthButtons returnTo="{{ '/portal' }}" />
+
+    <form onsubmit.prevent="{{ submit() }}" novalidate>
+      <div class="tx-field">
+        <label for="email" class="tx-label">Email</label>
+        <input id="email" type="email" autocomplete="email" autofocus class="tx-input" placeholder="you@company.co.ke" bind:value="{{ email }}" />
+      </div>
+      <div class="tx-field">
+        <div class="flex items-center justify-between mb-1.5">
+          <label for="password" class="tx-label !mb-0">Password</label>
+          <a href="/forgot-password" class="text-xs tx-link">Forgot password?</a>
+        </div>
+        <div class="relative">
+          <input id="password" type="{{ show ? 'text' : 'password' }}" autocomplete="current-password" class="tx-input pr-11" placeholder="••••••••" bind:value="{{ password }}" />
+          <button type="button" class="absolute right-1.5 top-1/2 -translate-y-1/2 tx-icon-btn !w-8 !h-8" aria-label="{{ show ? 'Hide password' : 'Show password' }}" onclick="{{ show = not show }}">
+{{#if show}}<IconEyeSlash />{{#else}}<IconEye />{{/if}}
+          </button>
+        </div>
+      </div>
+      <label class="flex items-center gap-2 text-sm text-soft mb-6"><input type="checkbox" class="tx-check" bind:checked="{{ remember }}" /> Keep me signed in</label>
+      <button type="submit" class="tx-btn tx-btn-primary tx-btn-block tx-btn-lg" disabled="{{ submitting }}">
+{{#if submitting}}<span class="tx-spinner"></span> Signing in…{{#else}}Sign in <IconArrowRight />{{/if}}
+      </button>
+    </form>
+
+    <p class="text-sm text-muted text-center mt-7">New to Ashmif? <a href="/register" class="tx-link">Create a client account</a></p>
+  </AuthFrame>

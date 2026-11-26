@@ -1,0 +1,91 @@
+page AdminTeam
+
+import { IconUserAdd, IconShieldCheck, IconMail } from "tylix-icons"
+
+title "Staff · Ashmif console"
+
+uses
+  Auth
+  Fmt
+  Live
+
+state
+  staff: []
+  loading: true
+  open: false
+  form: { name: "", email: "", job_title: "", role: "staff" }
+  busy: false
+
+action
+  async load() {
+    const r = await useApi("/api/admin/staff")
+    if r.ok {
+      this.staff = r.data
+    }
+    this.loading = false
+  }
+
+  async add() {
+    this.busy = true
+    const r = await useApi("/api/admin/staff", { method: "POST", body: this.form })
+    this.busy = false
+    if r.ok {
+      this.open = false
+      Live.say(r.data.promoted ? "Existing account given staff access" : `Invitation sent to ${this.form.email}`)
+      this.form = { name: "", email: "", job_title: "", role: "staff" }
+      await this.load()
+    } else {
+      Live.say(Live.errorOf(r, "Couldn't add them."))
+    }
+  }
+
+  async setRole(u, role) {
+    if role is "removed" and not confirm(`Remove ${u.name}'s staff access?`) {
+      return null
+    }
+    const r = await useApi(`/api/admin/staff/${u.id}`, { method: "PUT", body: { role } })
+    Live.say(r.ok ? "Access updated" : Live.errorOf(r, "Couldn't update."))
+    await this.load()
+  }
+
+onMount
+  async {
+    await this.load()
+  }
+
+template
+<div>
+  <PageHeader title="Staff" subtitle="Who can use the console. Administrators can manage staff.">
+{{#if Auth.isAdmin()}}<button slot="actions" type="button" class="tx-btn tx-btn-primary" onclick="{{ open = true }}"><IconUserAdd /> Add staff</button>{{/if}}
+  </PageHeader>
+{{#if loading}}
+  <div class="tx-skeleton h-64"></div>
+{{#else}}
+  <div class="tx-panel overflow-hidden"><ul class="tx-list">
+{{#each u in staff}}
+    <li class="px-5 py-4 flex flex-wrap items-center gap-3">
+      <Avatar name="{{ u.name }}" url="{{ u.avatar_url }}" size="{{ 40 }}" staff="{{ true }}" />
+      <div class="min-w-0 flex-1"><p class="font-semibold text-sm">{{ u.name }}{{ u.id is Auth.user?.id ? " (you)" : "" }}</p><p class="text-xs text-muted truncate">{{ u.job_title ? u.job_title + " · " : "" }}{{ u.email }}</p></div>
+      <span class="text-xs text-muted hidden sm:block">{{ u.last_seen_at ? "Active " + Fmt.ago(u.last_seen_at) : "Not signed in yet" }}</span>
+{{#if Auth.isAdmin() and u.id is not Auth.user?.id}}
+      <select class="tx-input !w-36 text-sm !py-1.5" aria-label="{{ 'Role for ' + u.name }}" onchange="{{ setRole(u, $event.target.value) }}"><option value="staff" selected="{{ u.role is 'staff' }}">Staff</option><option value="admin" selected="{{ u.role is 'admin' }}">Administrator</option><option value="removed" selected="{{ u.role is 'removed' }}">Remove access</option></select>
+{{#else}}
+      <span class="{{ 'tx-badge ' + (u.role is 'admin' ? 'tone-gold' : 'tone-sky') }}">{{ u.role is "admin" ? "Administrator" : "Staff" }}</span>
+{{/if}}
+    </li>
+{{/each}}
+  </ul></div>
+  <div class="mt-4 tx-panel p-4 flex gap-3 text-sm text-muted"><IconShieldCheck class="w-5 h-5 text-brand shrink-0" /> Staff can see every client and ticket. Only administrators can add or remove staff.</div>
+{{/if}}
+{{#if open}}
+  <Modal title="Add a staff member" subtitle="New people get an email to set their password." onClose="{{ () => open = false }}">
+    <div class="tx-field"><label class="tx-label" for="st-name">Name</label><input id="st-name" class="tx-input" bind:value="{{ form.name }}" /></div>
+    <div class="tx-field"><label class="tx-label" for="st-email">Email</label><input id="st-email" type="email" class="tx-input" bind:value="{{ form.email }}" /></div>
+    <div class="grid sm:grid-cols-2 gap-x-3">
+      <div class="tx-field"><label class="tx-label" for="st-title">Job title</label><input id="st-title" class="tx-input" bind:value="{{ form.job_title }}" /></div>
+      <div class="tx-field"><label class="tx-label" for="st-role">Role</label><select id="st-role" class="tx-input" bind:value="{{ form.role }}"><option value="staff">Staff</option><option value="admin">Administrator</option></select></div>
+    </div>
+    <div class="flex justify-end gap-2"><button type="button" class="tx-btn tx-btn-ghost" onclick="{{ open = false }}">Cancel</button><button type="button" class="tx-btn tx-btn-primary" disabled="{{ busy }}" onclick="{{ add() }}"><IconMail /> {{ busy ? "Sending…" : "Send invitation" }}</button></div>
+  </Modal>
+{{/if}}
+</div>

@@ -1,0 +1,101 @@
+page PortalTickets
+
+import { IconPlus, IconSearch, IconTicket, IconClock, IconAlertOctagon } from "tylix-icons"
+
+title "Support tickets · Ashmif portal"
+
+uses
+  Fmt
+  Live
+
+state
+  tickets: []
+  loading: true
+  tab: "active"
+  query: ""
+
+computed
+  counts() {
+    const active = this.tickets.filter(t => t.status is not "resolved" and t.status is not "closed").length
+    const waiting = this.tickets.filter(t => t.status is "awaiting_client").length
+    return { active, waiting, done: this.tickets.length - active, all: this.tickets.length }
+  }
+
+  visible() {
+    const q = this.query.trim().toLowerCase()
+    return this.tickets.filter(t => {
+      if this.tab is "active" and (t.status is "resolved" or t.status is "closed") {
+        return false
+      }
+      if this.tab is "waiting" and t.status is not "awaiting_client" {
+        return false
+      }
+      if this.tab is "done" and t.status is not "resolved" and t.status is not "closed" {
+        return false
+      }
+      return not q or t.subject.toLowerCase().includes(q) or t.ref.toLowerCase().includes(q) or t.product_name.toLowerCase().includes(q)
+    })
+  }
+
+onMount
+  async {
+    const r = await useApi("/api/portal/tickets")
+    if r.ok {
+      this.tickets = r.data
+      if r.data.some(t => t.status is "awaiting_client") {
+        this.tab = "waiting"
+      }
+    }
+    this.loading = false
+  }
+
+template
+<div>
+  <PageHeader title="Support tickets" subtitle="Track every issue from report to resolution.">
+    <a slot="actions" href="/portal/tickets/new" class="tx-btn tx-btn-primary"><IconPlus /> New ticket</a>
+  </PageHeader>
+
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+    <div class="tx-tabs">
+      <button type="button" class="tx-tab" class:tx-tab-active="{{ tab is 'active' }}" onclick="{{ tab = 'active' }}">Active <span class="count">{{ counts.active }}</span></button>
+      <button type="button" class="tx-tab" class:tx-tab-active="{{ tab is 'waiting' }}" onclick="{{ tab = 'waiting' }}">Awaiting you <span class="count">{{ counts.waiting }}</span></button>
+      <button type="button" class="tx-tab" class:tx-tab-active="{{ tab is 'done' }}" onclick="{{ tab = 'done' }}">Resolved <span class="count">{{ counts.done }}</span></button>
+      <button type="button" class="tx-tab" class:tx-tab-active="{{ tab is 'all' }}" onclick="{{ tab = 'all' }}">All <span class="count">{{ counts.all }}</span></button>
+    </div>
+    <div class="relative md:w-72">
+      <IconSearch class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+      <input class="tx-input !pl-10 !rounded-full" placeholder="Search tickets" aria-label="Search tickets" bind:value="{{ query }}" />
+    </div>
+  </div>
+
+{{#if loading}}
+  <div class="space-y-2"><div class="tx-skeleton h-16"></div><div class="tx-skeleton h-16"></div><div class="tx-skeleton h-16"></div></div>
+{{#else if visible.length is 0}}
+  <div class="tx-empty">
+    <IconTicket />
+    <p class="font-semibold">{{ tickets.length ? "No tickets here" : "You haven't opened any tickets yet" }}</p>
+    <p class="text-sm text-muted mt-1">{{ tickets.length ? "Try another tab or search." : "Report an issue and follow it here until it's fixed." }}</p>
+    <a href="/portal/tickets/new" class="tx-btn tx-btn-primary tx-btn-sm mt-4"><IconPlus /> New ticket</a>
+  </div>
+{{#else}}
+  <div class="tx-panel overflow-hidden">
+    <ul class="tx-list">
+{{#each t in visible}}
+      <li>
+        <a href="{{ `/portal/tickets/${t.id}` }}" class="flex items-center gap-4 px-4 sm:px-5 py-4 hover:bg-raised/60 no-underline text-ink">
+          <span class="hidden sm:flex product-icon !w-10 !h-10 !rounded-xl bg-raised text-muted"><ProductIcon slug="{{ t.product }}" cls="w-[18px] h-[18px]" /></span>
+          <span class="min-w-0 flex-1">
+            <span class="flex items-center gap-2"><span class="text-sm font-semibold truncate">{{ t.subject }}</span>{{#if t.priority is "urgent" or t.priority is "high"}}<StatusBadge value="{{ t.priority }}" />{{/if}}</span>
+            <span class="block text-xs text-muted mt-1">{{ t.ref }} · {{ t.product_name }} · opened by {{ t.requester?.name ?? "you" }} · {{ Fmt.ago(t.last_activity_at) }}</span>
+          </span>
+          <span class="flex flex-col items-end gap-1.5 shrink-0">
+            <StatusBadge value="{{ t.status }}" />
+{{#if t.assignee}}<span class="hidden sm:flex items-center gap-1.5 text-[11px] text-muted"><Avatar name="{{ t.assignee.name }}" url="{{ t.assignee.avatar_url }}" size="{{ 18 }}" staff="{{ true }}" /> {{ t.assignee.name }}</span>{{/if}}
+          </span>
+        </a>
+      </li>
+{{/each}}
+    </ul>
+  </div>
+{{/if}}
+</div>

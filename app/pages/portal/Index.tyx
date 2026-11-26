@@ -1,0 +1,200 @@
+page PortalHome
+
+import { IconTicket, IconMessageCircle, IconReceipt, IconPackage, IconKanban, IconSparkles, IconArrowRight, IconClock, IconExclamationTriangle, IconMegaphone, IconPlus, IconCalendarClock, IconCheckCircle, IconTool, IconPhone } from "tylix-icons"
+
+title "Overview · Ashmif portal"
+
+uses
+  Auth
+  Fmt
+  Live
+
+state
+  data: null
+  loading: true
+  failed: ""
+
+action
+  openChat() {
+    Live.openSupport()
+  }
+
+  renewTone(days) {
+    if days < 0 {
+      return "tone-coral"
+    }
+    if days <= 14 {
+      return "tone-peach"
+    }
+    return "tone-sky"
+  }
+
+onMount
+  async {
+    const r = await useApi("/api/portal/overview")
+    if r.ok {
+      this.data = r.data
+    } else {
+      this.failed = Live.errorOf(r, "Couldn't load your overview.")
+    }
+    this.loading = false
+  }
+
+template
+<div>
+{{#if loading}}
+  <div class="tx-skeleton h-24 mb-6"></div>
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6"><div class="tx-skeleton h-28"></div><div class="tx-skeleton h-28"></div><div class="tx-skeleton h-28"></div><div class="tx-skeleton h-28"></div></div>
+  <div class="tx-skeleton h-64"></div>
+{{#else if failed}}
+  <div class="tx-alert tx-alert-warn"><p>{{ failed }}</p></div>
+{{#else}}
+  <section class="relative overflow-hidden rounded-[24px] border border-line bg-panel p-6 sm:p-8 mb-6">
+    <div class="absolute inset-0 bg-grid opacity-70 mask-fade-b"></div>
+    <div class="relative flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+      <div>
+        <p class="text-sm text-muted">{{ Fmt.greeting() }}, {{ Auth.firstName() }}</p>
+        <h1 class="mt-1 text-2xl sm:text-3xl font-bold tracking-tight">{{ data.company?.name ?? "Your portal" }}</h1>
+        <div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
+{{#if data.company}}<StatusBadge value="{{ data.company.tier }}" />{{/if}}
+{{#if data.stats.avg_response_hours !== null}}
+          <span class="tx-badge tone-brand"><IconClock class="w-3 h-3" /> Avg first reply {{ data.stats.avg_response_hours < 1 ? Math.round(data.stats.avg_response_hours * 60) + "m" : data.stats.avg_response_hours + "h" }}</span>
+{{/if}}
+        </div>
+      </div>
+      <div class="grid grid-cols-2 sm:flex gap-2">
+        <a href="/portal/tickets/new" class="tx-btn tx-btn-primary"><IconPlus /> New ticket</a>
+        <button type="button" class="tx-btn tx-btn-outline" onclick="{{ openChat() }}"><IconMessageCircle /> Message us</button>
+        <a href="/portal/billing" class="tx-btn tx-btn-outline"><IconReceipt /> Pay invoice</a>
+        <a href="/portal/catalog" class="tx-btn tx-btn-outline"><IconSparkles /> Add product</a>
+      </div>
+    </div>
+  </section>
+
+{{#each inc in data.incidents}}
+  <div class="tx-alert tx-alert-warn mb-4"><IconTool /><p><strong>{{ inc.product_name }}:</strong> {{ inc.title }} · <a href="/status" class="underline">status page</a></p></div>
+{{/each}}
+{{#each a in data.announcements}}
+  <div class="tx-panel p-4 mb-4 flex gap-3 items-start border-l-4 !border-l-brand">
+    <span class="tx-stat-icon bg-brand-soft/10 text-brand shrink-0"><IconMegaphone /></span>
+    <div class="min-w-0"><p class="font-semibold text-sm">{{ a.title }}</p><p class="text-sm text-soft mt-0.5 tx-prose">{{ a.body }}</p></div>
+  </div>
+{{/each}}
+
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+    <StatCard label="Open tickets" value="{{ String(data.stats.open_tickets) }}" hint="{{ data.stats.awaiting_you ? data.stats.awaiting_you + ' waiting for your reply' : 'All moving' }}" tone="sky" href="/portal/tickets"><IconTicket /></StatCard>
+    <StatCard label="Balance due" value="{{ Fmt.money(data.stats.balance_due) }}" hint="{{ data.stats.overdue ? data.stats.overdue + ' overdue' : 'Nothing overdue' }}" tone="{{ data.stats.overdue ? 'coral' : 'mint' }}" href="/portal/billing"><IconReceipt /></StatCard>
+    <StatCard label="Active services" value="{{ String(data.stats.active_services) }}" hint="{{ data.stats.renewing_soon ? data.stats.renewing_soon + ' renewing soon' : 'No renewals due' }}" tone="{{ data.stats.renewing_soon ? 'peach' : 'brand' }}" href="/portal/services"><IconPackage /></StatCard>
+    <StatCard label="Active projects" value="{{ String(data.stats.active_projects) }}" hint="Follow progress" tone="violet" href="/portal/projects"><IconKanban /></StatCard>
+  </div>
+
+  <div class="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+    <div class="space-y-6 min-w-0">
+      <section class="tx-panel overflow-hidden">
+        <div class="px-5 py-4 border-b border-line flex items-center justify-between">
+          <h2 class="font-semibold">Recent tickets</h2>
+          <a href="/portal/tickets" class="text-sm tx-link">View all</a>
+        </div>
+{{#if data.tickets.length}}
+        <ul class="tx-list">
+{{#each t in data.tickets}}
+          <li>
+            <a href="{{ `/portal/tickets/${t.id}` }}" class="flex items-center gap-4 px-5 py-3.5 hover:bg-raised/60 no-underline text-ink">
+              <span class="product-icon !w-9 !h-9 !rounded-xl bg-raised text-muted"><ProductIcon slug="{{ t.product }}" cls="w-4 h-4" /></span>
+              <span class="min-w-0 flex-1">
+                <span class="block text-sm font-semibold truncate">{{ t.subject }}</span>
+                <span class="block text-xs text-muted mt-0.5">{{ t.ref }} · {{ t.product_name }} · {{ Fmt.ago(t.last_activity_at) }}</span>
+              </span>
+              <StatusBadge value="{{ t.status }}" />
+            </a>
+          </li>
+{{/each}}
+        </ul>
+{{#else}}
+        <div class="p-8 text-center">
+          <IconCheckCircle class="w-8 h-8 text-mint mx-auto" />
+          <p class="mt-3 font-semibold">No tickets yet</p>
+          <p class="text-sm text-muted mt-1">When something needs fixing, open a ticket and track it here.</p>
+          <a href="/portal/tickets/new" class="tx-btn tx-btn-primary tx-btn-sm mt-4"><IconPlus /> Open a ticket</a>
+        </div>
+{{/if}}
+      </section>
+
+{{#if data.projects.length}}
+      <section class="tx-panel overflow-hidden">
+        <div class="px-5 py-4 border-b border-line flex items-center justify-between">
+          <h2 class="font-semibold">Projects in progress</h2>
+          <a href="/portal/projects" class="text-sm tx-link">All projects</a>
+        </div>
+        <div class="p-5 grid gap-4 sm:grid-cols-2">
+{{#each p in data.projects}}
+          <a href="{{ `/portal/projects/${p.id}` }}" class="tx-well p-4 no-underline text-ink hover:border-brand-soft/40">
+            <div class="flex items-center justify-between gap-2"><p class="text-sm font-semibold truncate">{{ p.title }}</p><StatusBadge value="{{ p.status }}" /></div>
+            <div class="mt-3 flex items-center gap-3"><div class="tx-progress flex-1"><span style:width="{{ p.progress + '%' }}"></span></div><span class="text-xs text-muted tabular">{{ p.progress }}%</span></div>
+{{#if p.due_on}}<p class="mt-2 text-xs text-muted">Target {{ Fmt.date(p.due_on) }}</p>{{/if}}
+          </a>
+{{/each}}
+        </div>
+      </section>
+{{/if}}
+    </div>
+
+    <div class="space-y-6 min-w-0">
+      <section class="tx-panel overflow-hidden">
+        <div class="px-5 py-4 border-b border-line flex items-center justify-between">
+          <h2 class="font-semibold">Invoices to pay</h2>
+          <a href="/portal/billing" class="text-sm tx-link">Billing</a>
+        </div>
+{{#if data.invoices.length}}
+        <ul class="tx-list">
+{{#each d in data.invoices}}
+          <li>
+            <a href="{{ `/portal/billing/${d.id}` }}" class="flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-raised/60 no-underline text-ink">
+              <span class="min-w-0"><span class="block text-sm font-semibold">{{ d.number }}</span><span class="block text-xs text-muted truncate">{{ d.subject or "Invoice" }} · due {{ Fmt.date(d.due_on) }}</span></span>
+              <span class="text-right shrink-0"><span class="block text-sm font-bold tabular">{{ Fmt.money(d.balance, d.currency) }}</span>{{#if d.overdue}}<span class="tx-badge tone-coral mt-1">Overdue</span>{{/if}}</span>
+            </a>
+          </li>
+{{/each}}
+        </ul>
+{{#if data.paybill}}
+        <div class="px-5 py-3 bg-raised/50 border-t border-line text-xs text-muted">M-Pesa Paybill <strong class="text-ink font-mono">{{ data.paybill }}</strong> · account = invoice number</div>
+{{/if}}
+{{#else}}
+        <p class="px-5 py-6 text-sm text-muted flex items-center gap-2"><IconCheckCircle class="w-4 h-4 text-mint" /> You're all paid up. Thank you!</p>
+{{/if}}
+      </section>
+
+      <section class="tx-panel overflow-hidden">
+        <div class="px-5 py-4 border-b border-line flex items-center justify-between">
+          <h2 class="font-semibold">Upcoming renewals</h2>
+          <a href="/portal/services" class="text-sm tx-link">Services</a>
+        </div>
+{{#if data.renewals.length}}
+        <ul class="tx-list">
+{{#each s in data.renewals}}
+          <li class="flex items-center gap-3 px-5 py-3.5">
+            <span class="tx-stat-icon bg-raised text-muted shrink-0"><IconCalendarClock /></span>
+            <span class="min-w-0 flex-1"><span class="block text-sm font-semibold truncate">{{ s.name }}</span><span class="block text-xs text-muted">{{ Fmt.date(s.renews_on) }}</span></span>
+            <span class="{{ 'tx-badge ' + renewTone(s.days_left) }}">{{ s.days_left < 0 ? "Expired" : s.days_left is 0 ? "Today" : "in " + s.days_left + "d" }}</span>
+          </li>
+{{/each}}
+        </ul>
+{{#else}}
+        <p class="px-5 py-6 text-sm text-muted">Nothing renews in the next 60 days.</p>
+{{/if}}
+      </section>
+
+      <section class="relative overflow-hidden rounded-[20px] bg-[#020617] text-white p-5">
+        <div class="relative">
+          <p class="font-semibold">Need help right now?</p>
+          <p class="text-sm text-white/70 mt-1">Message us from any page, or call the support line.</p>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <button type="button" class="tx-btn tx-btn-sm !bg-[#18c192] !text-[#02130f]" onclick="{{ openChat() }}"><IconMessageCircle /> Message support</button>
+            <a href="tel:+254758839829" class="tx-btn tx-btn-sm !bg-white/10 !text-white !border-white/20"><IconPhone /> Call</a>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+{{/if}}
+</div>

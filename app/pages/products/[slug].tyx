@@ -1,0 +1,125 @@
+page ProductDetail
+
+import { IconArrowRight, IconArrowUpRight, IconCheck, IconArrowLeft, IconMessageCircle, IconLogin, IconSparkles } from "tylix-icons"
+
+props
+  slug: string
+
+uses
+  Catalog
+  Auth
+
+computed
+  product() {
+    return Catalog.find(this.slug)
+  }
+
+  others() {
+    return Catalog.products.filter(p => p.slug is not this.slug).slice(0, 3)
+  }
+
+onMount
+  {
+    if this.product {
+      document.title = `${this.product.name} · ${this.product.tagline}`
+    }
+  }
+
+template
+{{#if not product}}
+  <div class="tx-container py-28 text-center">
+    <h1 class="text-3xl font-bold">We don't have that product</h1>
+    <a href="/products" class="tx-btn tx-btn-primary mt-6">See all products</a>
+  </div>
+{{#else}}
+<div>
+  <section class="relative overflow-hidden border-b border-line">
+    <div class="absolute inset-0 bg-grid mask-fade-b"></div>
+    <div class="relative tx-container py-14 sm:py-20">
+      <a href="/products" class="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink no-underline mb-8"><IconArrowLeft class="w-4 h-4" /> All products</a>
+      <div class="grid gap-10 lg:grid-cols-[1.2fr_1fr] items-center">
+        <div class="min-w-0">
+          <div class="flex items-center gap-3 fade-up">
+            <span class="product-icon !w-14 !h-14 !rounded-2xl" style:background="{{ product.color + '22' }}" style:color="{{ product.color }}"><ProductIcon slug="{{ product.slug }}" cls="w-7 h-7" /></span>
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wider" style:color="{{ product.color }}">{{ product.category }}</p>
+              <p class="text-xl font-bold">{{ product.name }}</p>
+            </div>
+          </div>
+          <h1 class="fade-up fade-up-2 mt-7 text-4xl sm:text-6xl font-bold tracking-tight text-balance">{{ product.headline }}</h1>
+          <p class="fade-up fade-up-3 mt-5 text-lg text-soft leading-relaxed">{{ product.description }}</p>
+          <div class="fade-up fade-up-4 mt-8 flex flex-wrap gap-3">
+            <a href="{{ product.url }}" target="_blank" rel="noopener" class="tx-btn tx-btn-primary tx-btn-lg">Visit {{ product.domain }} <IconArrowUpRight /></a>
+            <a href="{{ product.loginUrl }}" target="_blank" rel="noopener" class="tx-btn tx-btn-outline tx-btn-lg"><IconLogin /> Sign in to {{ product.name }}</a>
+          </div>
+        </div>
+        <div class="tx-panel p-6 sm:p-7 min-w-0">
+          <p class="tx-kicker">Who it's for</p>
+          <p class="mt-2 text-soft">{{ product.audience }}</p>
+          <hr class="tx-divider-line my-5" />
+          <p class="tx-kicker">Pricing</p>
+          <p class="mt-2 font-semibold">{{ product.pricing }}</p>
+          <hr class="tx-divider-line my-5" />
+          <p class="text-sm text-muted mb-3">Want it for your organisation?</p>
+{{#if Auth.user}}
+          <a href="{{ `/portal/catalog?product=${product.slug}` }}" class="tx-btn tx-btn-primary tx-btn-block"><IconSparkles /> Request it from your portal</a>
+{{#else}}
+          <a href="{{ `/contact?product=${product.slug}` }}" class="tx-btn tx-btn-primary tx-btn-block"><IconMessageCircle /> Talk to us about {{ product.name }}</a>
+{{/if}}
+        </div>
+      </div>
+    </div>
+  </section>
+
+{{#if product.plans.length}}
+  <section class="tx-container py-16">
+    <p class="tx-eyebrow mb-4">Plans</p>
+    <h2 class="text-3xl font-bold tracking-tight mb-8">Pick the size that fits</h2>
+    <div class="grid gap-4 md:grid-cols-3">
+{{#each plan in product.plans}}
+      <div class="tx-panel p-6 relative" class:ring-2="{{ plan.popular }}" style:--tw-ring-color="{{ product.color }}">
+{{#if plan.popular}}
+        <span class="absolute -top-3 left-6 tx-badge text-white border-0" style:background="{{ product.color }}">Most popular</span>
+{{/if}}
+        <p class="font-semibold">{{ plan.name }}</p>
+        <p class="mt-3"><span class="text-3xl font-bold tracking-tight">{{ plan.price }}</span><span class="text-muted text-sm">{{ plan.period }}</span></p>
+        <p class="mt-2 text-sm text-muted">{{ plan.note }}</p>
+      </div>
+{{/each}}
+    </div>
+  </section>
+{{/if}}
+
+  <section class="tx-container py-16" class:pt-0="{{ product.plans.length > 0 }}">
+    <p class="tx-eyebrow mb-4">Features</p>
+    <h2 class="text-3xl font-bold tracking-tight mb-8">Everything you need, nothing you don't</h2>
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+{{#each f in product.features}}
+      <div class="tx-panel p-5">
+        <span class="w-8 h-8 rounded-lg flex items-center justify-center" style:background="{{ product.color + '1f' }}" style:color="{{ product.color }}"><IconCheck class="w-4 h-4" /></span>
+        <p class="mt-4 font-semibold leading-snug">{{ f }}</p>
+      </div>
+{{/each}}
+    </div>
+  </section>
+
+  <section class="tx-container pb-16">
+    <div class="tx-panel p-6 sm:p-8 flex flex-col md:flex-row md:items-center gap-5 justify-between">
+      <div>
+        <p class="font-semibold text-lg">Already using {{ product.name }}?</p>
+        <p class="text-sm text-muted mt-1">Get help, see your subscription and invoices in the Ashmif client portal.</p>
+      </div>
+      <a href="{{ Auth.user ? '/portal' : '/login' }}" class="tx-btn tx-btn-outline">Open the client portal <IconArrowRight /></a>
+    </div>
+    <h3 class="mt-14 mb-5 text-lg font-bold">More from Ashmif</h3>
+    <div class="grid gap-4 md:grid-cols-3">
+{{#each o in others}}
+      <a href="{{ `/products/${o.slug}` }}" class="tx-panel tx-hover p-5 flex items-center gap-4 no-underline text-ink">
+        <span class="product-icon" style:background="{{ o.color + '1f' }}" style:color="{{ o.color }}"><ProductIcon slug="{{ o.slug }}" cls="w-6 h-6" /></span>
+        <span class="min-w-0"><span class="block font-semibold">{{ o.name }}</span><span class="block text-sm text-muted truncate">{{ o.tagline }}</span></span>
+      </a>
+{{/each}}
+    </div>
+  </section>
+</div>
+{{/if}}

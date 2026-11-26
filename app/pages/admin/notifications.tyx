@@ -1,0 +1,9 @@
+page AdminNotifications
+
+title "Notifications · Ashmif console"
+
+template
+<div>
+  <PageHeader title="Notifications" subtitle="New tickets, client replies, messages, leads and ratings." />
+  <NotificationsPanel />
+</div>

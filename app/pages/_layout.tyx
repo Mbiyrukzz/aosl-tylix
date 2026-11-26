@@ -1,13 +1,15 @@
 component SiteLayout
 
-import SiteNavbar from "./components/SiteNavbar"
-import SiteFooter from "./components/SiteFooter"
-import PwaPrompt from "./components/PwaPrompt"
+// Public pages: the marketing navbar and footer. The portal and the
+// console have their own layouts (portal/_layout.tyx, admin/_layout.tyx).
 
 template
   <div class="tx-shell">
-    <SiteNavbar showPosts="{{ true }}" />
-    <main class="flex-1" data-tylix-slot="true"></main>
+    <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[90] tx-btn tx-btn-primary">Skip to content</a>
+    <SiteNav />
+    <main id="main" class="flex-1 min-w-0" data-tylix-slot="true"></main>
+    <SiteFooter />
+    <SupportLauncher />
     <PwaPrompt />
-    <SiteFooter showPosts="{{ true }}" showAccount="{{ true }}" />
+    <Toast />
   </div>

@@ -1,0 +1,152 @@
+page PortalMessages
+
+import { IconSend, IconTicket, IconMessageCircle, IconClock, IconPhone, IconWhatsapp, IconMail } from "tylix-icons"
+
+title "Messages · Ashmif portal"
+
+uses
+  Auth
+  Fmt
+  Live
+
+state
+  messages: []
+  loading: true
+  draft: ""
+  sending: false
+  error: ""
+
+action
+  scrollDown() {
+    setTimeout(() => {
+      const el = document.getElementById("chat-scroll")
+      if el {
+        el.scrollTop = el.scrollHeight
+      }
+    }, 40)
+  }
+
+  async load(quiet) {
+    const r = await useApi("/api/portal/messages")
+    if r.ok {
+      const grew = r.data.messages.length is not this.messages.length
+      this.messages = r.data.messages
+      Live.messagesUnread = 0
+      if grew or not quiet {
+        this.scrollDown()
+      }
+    }
+    this.loading = false
+  }
+
+  async send() {
+    const body = this.draft.trim()
+    if not body or this.sending {
+      return null
+    }
+    this.sending = true
+    this.error = ""
+    const r = await useApi("/api/portal/messages", { method: "POST", body: { body, page_url: "/portal/messages" } })
+    this.sending = false
+    if r.ok {
+      this.messages = [...this.messages, r.data]
+      this.draft = ""
+      this.scrollDown()
+    } else {
+      this.error = Live.errorOf(r, "Couldn't send. Try again.")
+    }
+  }
+
+  onEnter(e) {
+    if e.shiftKey {
+      return null
+    }
+    e.preventDefault()
+    this.send()
+  }
+
+  dayLabel(m, i) {
+    const d = new Date(String(m.created_at)).toDateString()
+    const prev = i > 0 ? new Date(String(this.messages[i - 1].created_at)).toDateString() : ""
+    if d is prev {
+      return ""
+    }
+    const today = new Date().toDateString()
+    const yesterday = new Date(Date.now() - 86400000).toDateString()
+    return d is today ? "Today" : d is yesterday ? "Yesterday" : Fmt.date(m.created_at)
+  }
+
+onMount
+  async {
+    await this.load(false)
+    setInterval(() => {
+      if not document.hidden {
+        this.load(true)
+      }
+    }, 8000)
+  }
+
+template
+<div>
+  <PageHeader title="Messages" subtitle="A direct line to the Ashmif support team. Every message reaches our inbox instantly." />
+  <div class="grid gap-6 lg:grid-cols-[1fr_18rem]">
+    <section class="tx-panel flex flex-col h-[calc(100dvh-15rem)] min-h-[28rem] overflow-hidden">
+      <div id="chat-scroll" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3">
+{{#if loading}}
+        <div class="tx-skeleton h-12 w-2/3"></div><div class="tx-skeleton h-12 w-1/2 ml-auto"></div>
+{{#else}}
+        <div class="flex gap-2.5">
+          <Avatar name="Ashmif Support" size="{{ 30 }}" staff="{{ true }}" />
+          <div class="bubble bubble-them">Hi {{ Auth.firstName() }}! Ask us anything here. For bigger issues we'll open a ticket so nothing gets lost.</div>
+        </div>
+{{#each m, i in messages}}
+{{#if dayLabel(m, i)}}
+        <p class="text-center text-[11px] text-muted py-2"><span class="px-3 py-1 rounded-full bg-raised border border-line">{{ dayLabel(m, i) }}</span></p>
+{{/if}}
+{{#if m.direction is "in"}}
+        <div class="flex gap-2.5 justify-end">
+          <div class="flex flex-col items-end min-w-0 max-w-[85%]">
+            <div class="bubble bubble-me !max-w-full">{{ m.body }}</div>
+            <span class="text-[10px] text-muted mt-1 mr-1">{{ new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }}</span>
+          </div>
+          <Avatar name="{{ Auth.user?.name ?? 'You' }}" url="{{ Auth.user?.avatar_url }}" size="{{ 30 }}" />
+        </div>
+{{#else}}
+        <div class="flex gap-2.5">
+          <Avatar name="{{ m.author?.name ?? 'Ashmif' }}" url="{{ m.author?.avatar_url }}" size="{{ 30 }}" staff="{{ true }}" />
+          <div class="min-w-0 max-w-[85%]">
+            <p class="text-[11px] text-muted mb-1 ml-1">{{ m.author?.name ?? "Ashmif Support" }}{{ m.author?.job_title ? " · " + m.author.job_title : "" }}</p>
+            <div class="bubble bubble-them !max-w-full">{{ m.body }}</div>
+{{#if m.ticket_id}}<a href="{{ `/portal/tickets/${m.ticket_id}` }}" class="inline-flex items-center gap-1.5 mt-1.5 ml-1 text-xs tx-link"><IconTicket class="w-3.5 h-3.5" /> View ticket</a>{{/if}}
+            <span class="block text-[10px] text-muted mt-1 ml-1">{{ new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }}</span>
+          </div>
+        </div>
+{{/if}}
+{{/each}}
+{{/if}}
+      </div>
+{{#if error}}<p class="px-5 pb-2 text-xs text-coral" role="alert">{{ error }}</p>{{/if}}
+      <form class="border-t border-line p-3 sm:p-4 flex items-end gap-2" onsubmit.prevent="{{ send() }}">
+        <label for="chat-input" class="sr-only">Message</label>
+        <textarea id="chat-input" rows="2" class="tx-input !rounded-2xl !min-h-0 text-sm" placeholder="Write a message… (Enter to send, Shift+Enter for a new line)" bind:value="{{ draft }}" onkeydown.enter="{{ onEnter($event) }}"></textarea>
+        <button type="submit" class="tx-btn tx-btn-primary !p-0 w-12 h-12 shrink-0" aria-label="Send" disabled="{{ sending or not draft.trim() }}">{{#if sending}}<span class="tx-spinner"></span>{{#else}}<IconSend />{{/if}}</button>
+      </form>
+    </section>
+    <aside class="space-y-4">
+      <div class="tx-panel p-5">
+        <p class="font-semibold flex items-center gap-2"><IconClock class="w-4 h-4 text-brand" /> Support hours</p>
+        <p class="text-sm text-muted mt-1.5">Monday to Saturday, 8am–6pm EAT. Urgent tickets on Platinum are watched beyond hours.</p>
+      </div>
+      <div class="tx-panel p-5 space-y-3 text-sm">
+        <p class="font-semibold">Other ways to reach us</p>
+        <a href="tel:+254758839829" class="flex items-center gap-2.5 text-soft no-underline hover:text-ink"><IconPhone class="w-4 h-4 text-brand" /> +254 758 839 829</a>
+        <a href="https://wa.me/254758839829" target="_blank" rel="noopener" class="flex items-center gap-2.5 text-soft no-underline hover:text-ink"><IconWhatsapp class="w-4 h-4 text-brand" /> WhatsApp</a>
+        <a href="mailto:hello@ashmif.com" class="flex items-center gap-2.5 text-soft no-underline hover:text-ink"><IconMail class="w-4 h-4 text-brand" /> hello@ashmif.com</a>
+      </div>
+      <a href="/portal/tickets/new" class="tx-panel tx-hover p-5 block no-underline text-ink">
+        <p class="font-semibold flex items-center gap-2"><IconTicket class="w-4 h-4 text-brand" /> Something broken?</p>
+        <p class="text-sm text-muted mt-1">Open a ticket to get a response target and full tracking.</p>
+      </a>
+    </aside>
+  </div>
+</div>

@@ -1,0 +1,9 @@
+page PortalSettings
+
+title "Profile & security · Ashmif portal"
+
+template
+<div>
+  <PageHeader title="Profile & security" subtitle="Your details, alerts, appearance and signed-in devices." />
+  <SettingsPanel />
+</div>

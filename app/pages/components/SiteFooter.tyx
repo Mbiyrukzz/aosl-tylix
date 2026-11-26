@@ -1,76 +1,96 @@
 component SiteFooter
 
-props
-  showPosts: boolean
-  showAccount: boolean
+import { IconMail, IconPhone, IconMapPin, IconArrowRight, IconWhatsapp } from "tylix-icons"
 
-state
-  year: 2026
+// Closing call to action, then the footer with the Ashmif Group mark.
+
+uses
+  Catalog
+  Auth
 
 computed
-  columns() {
-    const project = []
-    if this.showPosts {
-      project.push({ label: "Posts", href: "/posts" })
-    }
-    if this.showAccount {
-      project.push({ label: "Log in", href: "/login" })
-      project.push({ label: "Create account", href: "/register" })
-    }
-
-    const result = [
-      {
-        title: "Framework",
-        links: [
-          { label: "Documentation", href: "https://tylix.dev/docs" },
-          { label: "CLI reference", href: "https://tylix.dev/docs/cli" },
-          { label: "Changelog", href: "https://tylix.dev/changelog" }
-        ]
-      }
-    ]
-    if project.length > 0 {
-      result.push({ title: "Project", links: project })
-    }
-    result.push({
-      title: "Community",
-      links: [
-        { label: "GitHub", href: "https://github.com/tylixjs" },
-        { label: "Discord", href: "https://discord.gg/tylix" }
-      ]
-    })
-    return result
+  year() {
+    return new Date().getFullYear()
   }
 
 template
-  <footer class="border-t border-line bg-raised">
-    <div class="max-w-6xl mx-auto px-6 py-14 grid grid-cols-2 md:grid-cols-4 gap-10">
-      <div class="col-span-2 md:col-span-1">
-        <a href="/" class="flex items-center gap-2.5 mb-4">
-          <img src="/logo-mark.svg" alt="" class="h-[22px] w-auto" />
-          <span class="text-[17px] font-bold tracking-tight">Tylix</span>
-        </a>
-        <p class="text-sm text-muted leading-relaxed max-w-xs">
-          Full-stack JavaScript with a reactive compiler, a generator-first CLI and one ORM.
-        </p>
+  <footer class="relative mt-auto border-t border-line bg-panel/40">
+    <div class="tx-container py-14">
+      <div class="relative overflow-hidden rounded-[28px] border border-line bg-panel px-6 py-10 sm:px-12 sm:py-14 mb-16">
+        <div class="absolute inset-0 bg-dots opacity-60 mask-fade-b"></div>
+        <div class="relative flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+          <div class="max-w-xl">
+            <p class="prompt-eyebrow mb-4"><span>~/</span><b>start-a-project</b></p>
+            <h2 class="text-3xl sm:text-4xl font-bold tracking-tight text-balance">Got a process that eats your team's week?</h2>
+            <p class="mt-3 text-soft leading-relaxed">Tell us about it. We'll reply within one business day with how we'd solve it, what it costs and how long it takes.</p>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-3">
+            <a href="/contact" class="tx-btn tx-btn-primary tx-btn-lg">Start a conversation <IconArrowRight /></a>
+            <a href="{{ Auth.user ? Auth.home() : '/register' }}" class="tx-btn tx-btn-outline tx-btn-lg">{{ Auth.user ? "Open my portal" : "Create a client account" }}</a>
+          </div>
+        </div>
       </div>
 
-{{#each col in columns}}
-      <div>
-        <h4 class="text-xs font-semibold uppercase tracking-wider text-ink mb-4">{{ col.title }}</h4>
-        <ul class="space-y-2.5">
-{{#each link in col.links}}
-          <li>
-            <a href="{{ link.href }}" class="text-sm text-muted hover:text-ink transition-colors">{{ link.label }}</a>
-          </li>
+      <div class="grid gap-10 grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr_1.3fr]">
+        <div class="col-span-2 lg:col-span-1">
+          <BrandLogo withText="{{ true }}" />
+          <p class="mt-4 text-sm text-muted leading-relaxed max-w-xs">Software, engineering, business email, hosting and support for East African businesses. Built and supported from Mombasa.</p>
+          <div class="mt-6 flex items-center gap-3 rounded-2xl border border-line bg-panel p-3 w-fit">
+            <span class="group-mark w-10 h-10"></span>
+            <span class="leading-tight">
+              <span class="block text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">A company of</span>
+              <span class="block text-sm font-bold text-gold">Ashmif Group</span>
+            </span>
+          </div>
+        </div>
+        <div>
+          <p class="tx-kicker mb-4">Products</p>
+          <ul class="space-y-2.5 text-sm">
+{{#each p in Catalog.products}}
+            <li><a href="{{ `/products/${p.slug}` }}" class="text-soft hover:text-ink no-underline">{{ p.name }}</a></li>
 {{/each}}
-        </ul>
+          </ul>
+        </div>
+        <div>
+          <p class="tx-kicker mb-4">Services</p>
+          <ul class="space-y-2.5 text-sm">
+            <li><a href="/services#build" class="text-soft hover:text-ink no-underline">Custom software</a></li>
+            <li><a href="/services#models" class="text-soft hover:text-ink no-underline">Engineering teams</a></li>
+            <li><a href="/services#build" class="text-soft hover:text-ink no-underline">Mobile apps</a></li>
+            <li><a href="/#email" class="text-soft hover:text-ink no-underline">Business email</a></li>
+            <li><a href="/services#build" class="text-soft hover:text-ink no-underline">Hosting & domains</a></li>
+            <li><a href="/services#plans" class="text-soft hover:text-ink no-underline">Support plans</a></li>
+            <li><a href="https://tylix.dev" target="_blank" rel="noopener" class="text-soft hover:text-ink no-underline">Tylix docs</a></li>
+          </ul>
+        </div>
+        <div>
+          <p class="tx-kicker mb-4">Company</p>
+          <ul class="space-y-2.5 text-sm">
+            <li><a href="/careers" class="text-soft hover:text-ink no-underline">Careers</a></li>
+            <li><a href="/status" class="text-soft hover:text-ink no-underline">System status</a></li>
+            <li><a href="/contact" class="text-soft hover:text-ink no-underline">Contact</a></li>
+            <li><a href="/contact?topic=partnership" class="text-soft hover:text-ink no-underline">Partners</a></li>
+            <li><a href="/login" class="text-soft hover:text-ink no-underline">Client portal</a></li>
+          </ul>
+        </div>
+        <div class="col-span-2 lg:col-span-1">
+          <p class="tx-kicker mb-4">Talk to us</p>
+          <ul class="space-y-3 text-sm">
+            <li><a href="mailto:hello@ashmif.com" class="flex items-center gap-2.5 text-soft hover:text-ink no-underline"><IconMail class="w-4 h-4 text-brand" /> hello@ashmif.com</a></li>
+            <li><a href="tel:+254758839829" class="flex items-center gap-2.5 text-soft hover:text-ink no-underline"><IconPhone class="w-4 h-4 text-brand" /> +254 758 839 829</a></li>
+            <li><a href="https://wa.me/254758839829" target="_blank" rel="noopener" class="flex items-center gap-2.5 text-soft hover:text-ink no-underline"><IconWhatsapp class="w-4 h-4 text-brand" /> WhatsApp us</a></li>
+            <li class="flex items-center gap-2.5 text-soft"><IconMapPin class="w-4 h-4 text-brand" /> Mombasa, Kenya · EAT (UTC+3)</li>
+          </ul>
+        </div>
       </div>
-{{/each}}
-    </div>
 
-    <div class="border-t border-line">
-      <div class="max-w-6xl mx-auto px-6 py-5 text-xs text-muted">
-        © {{ year }} Tylix. Built with Tylix.
+      <div class="mt-12 pt-6 border-t border-line flex flex-col sm:flex-row gap-3 justify-between text-xs text-muted">
+        <p>© {{ year }} Ashmif Office Solutions. Part of Ashmif Group.</p>
+        <div class="flex flex-wrap items-center gap-x-5 gap-y-2">
+          <a href="https://tylix.dev" target="_blank" rel="noopener" class="inline-flex items-center gap-2 rounded-full border border-line px-3 py-1 text-muted hover:text-ink hover:border-line-strong no-underline"><span class="tylix-mark w-4 text-[#3563ff]"></span> Built with Tylix</a>
+          <a href="https://flux.tylix.dev" target="_blank" rel="noopener" class="inline-flex items-center gap-2 rounded-full border border-line px-3 py-1 text-muted hover:text-ink hover:border-line-strong no-underline"><img src="/brand/flux-mark.svg" alt="" class="w-4 h-4 rounded" /> Deployed on Flux</a>
+          <a href="/status" class="inline-flex items-center gap-2 text-muted hover:text-ink no-underline"><span class="tx-live text-mint"></span> System status</a>
+        </div>
       </div>
     </div>
   </footer>

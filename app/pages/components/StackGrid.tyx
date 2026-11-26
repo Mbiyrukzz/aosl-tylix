@@ -1,0 +1,33 @@
+component StackGrid
+
+import { IconDeviceMobile, IconDatabase } from "tylix-icons"
+
+// The technologies we build and support, grouped. Logos are the brands'
+// own files in public/logos, on white tiles so they read in both themes.
+
+state
+  groups: [
+    { title: "Backend & APIs", items: [{ id: "laravel", name: "Laravel" }, { id: "php", name: "PHP" }, { id: "django", name: "Django" }, { id: "fastapi", name: "FastAPI" }, { id: "java", name: "Java · Spring" }, { id: "dotnet", name: ".NET" }, { id: "nodejs", name: "Node.js" }, { id: "go", name: "Go" }, { id: "rust", name: "Rust" }, { id: "ruby", name: "Ruby on Rails" }] },
+    { title: "Web & sites", items: [{ id: "tylix", name: "Tylix" }, { id: "nextjs", name: "Next.js · React" }, { id: "nuxt", name: "Nuxt" }, { id: "vue", name: "Vue" }, { id: "angular", name: "Angular" }, { id: "wordpress", name: "WordPress" }] },
+    { title: "Mobile", items: [{ id: "mobile", name: "React Native" }, { id: "mobile", name: "Flutter" }, { id: "java", name: "Android · Java" }] },
+    { title: "Data & cloud", items: [{ id: "db", name: "PostgreSQL · MySQL" }, { id: "db", name: "MongoDB" }, { id: "docker", name: "Docker" }, { id: "aws", name: "AWS" }, { id: "digitalocean", name: "DigitalOcean" }, { id: "cloudflare", name: "Cloudflare" }, { id: "flux", name: "Tylix Flux" }] }
+  ]
+
+template
+  <div class="grid gap-4 md:grid-cols-2">
+{{#each g in groups}}
+    <div class="tx-panel-flat p-5">
+      <p class="tx-kicker mb-4">{{ g.title }}</p>
+      <div class="flex flex-wrap gap-2">
+{{#each it in g.items}}
+        <span class="inline-flex items-center gap-2.5 rounded-xl border border-line bg-canvas pl-1.5 pr-3.5 py-1.5 text-sm font-medium text-ink">
+          <span class="w-8 h-8 rounded-lg border border-line bg-white flex items-center justify-center shrink-0">
+{{#if it.id is "tylix"}}<span class="tylix-mark w-5 text-[#3563ff]"></span>{{#else if it.id is "flux"}}<img src="/brand/flux-mark.svg" alt="" class="w-5 h-5 rounded" />{{#else if it.id is "mobile"}}<IconDeviceMobile class="w-4 h-4 text-[#0b1220]" />{{#else if it.id is "db"}}<IconDatabase class="w-4 h-4 text-[#0b1220]" />{{#else}}<img src="{{ '/logos/' + it.id + '.svg' }}" alt="" class="w-5 h-5 object-contain" />{{/if}}
+          </span>
+          {{ it.name }}
+        </span>
+{{/each}}
+      </div>
+    </div>
+{{/each}}
+  </div>

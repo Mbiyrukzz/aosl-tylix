@@ -1,0 +1,112 @@
+capability Live
+
+// Live counters for the signed-in user: notifications, unread support
+// replies and (for staff) the console badges. The portal and console
+// layouts call start(); it polls every 20 seconds while the tab is open.
+// say() shows a short toast anywhere.
+
+state
+  notifications: []
+  unread: 0
+  messagesUnread: 0
+  pulse: { inbox: 0, tickets: 0, leads: 0, applications: 0 }
+  staff: false
+  started: false
+  toast: ""
+  toastTimer: 0
+  navOpen: false
+  paletteOpen: false
+
+action
+  async loadNotifications() {
+    const r = await useApi("/api/notifications")
+    if r.ok {
+      this.notifications = r.data.items
+      this.unread = r.data.unread
+    }
+  }
+
+  async tick() {
+    if document.hidden {
+      return null
+    }
+    await this.loadNotifications()
+    if this.staff {
+      const p = await useApi("/api/admin/pulse")
+      if p.ok {
+        this.pulse = p.data
+        document.title = document.title.replace(/^\(\d+\) /, "")
+        if p.data.inbox > 0 {
+          document.title = `(${p.data.inbox}) ${document.title}`
+        }
+      }
+    } else {
+      const m = await useApi("/api/portal/messages/unread")
+      if m.ok {
+        this.messagesUnread = m.data.unread
+      }
+    }
+  }
+
+  start(isStaff) {
+    if this.started {
+      return null
+    }
+    this.started = true
+    this.staff = Boolean(isStaff)
+    this.tick()
+    setInterval(() => this.tick(), 20000)
+    document.addEventListener("visibilitychange", () => {
+      if not document.hidden {
+        this.tick()
+      }
+    })
+  }
+
+  async markAllRead() {
+    await useApi("/api/notifications/read-all", { method: "POST" })
+    this.notifications = this.notifications.map(n => ({ ...n, read_at: n.read_at ?? new Date().toISOString() }))
+    this.unread = 0
+  }
+
+  async open(n) {
+    if not n.read_at {
+      await useApi(`/api/notifications/${n.id}/read`, { method: "POST" })
+      this.unread = Math.max(0, this.unread - 1)
+    }
+    if n.url {
+      window.location.href = n.url
+    }
+  }
+
+  // The first readable error from an API result: a 422 field error, the
+  // "error" message, or the fallback.
+  errorOf(result, fallback) {
+    const data = result?.data
+    if data and data.errors {
+      const first = Object.values(data.errors)[0]
+      if Array.isArray(first) and first.length {
+        return String(first[0])
+      }
+    }
+    if data and data.error {
+      return String(data.error)
+    }
+    if result?.status is 429 {
+      return "Too many attempts. Wait a minute and try again."
+    }
+    return fallback ?? result?.error ?? "Something went wrong. Try again."
+  }
+
+  // Opens the floating support conversation from anywhere.
+  openSupport() {
+    window.dispatchEvent(new CustomEvent("aos:support"))
+  }
+
+  say(message) {
+    this.toast = message
+    clearTimeout(this.toastTimer)
+    this.toastTimer = setTimeout(() => {
+      this.toast = ""
+    }, 3200)
+  }

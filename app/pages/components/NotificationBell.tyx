@@ -1,0 +1,73 @@
+component NotificationBell
+
+import { IconBell, IconCheckCheck, IconTicket, IconMessageCircle, IconReceipt, IconKanban, IconTarget, IconStar, IconBriefcase, IconUserAdd, IconInformationCircle } from "tylix-icons"
+
+// Bell with unread count and a dropdown of the latest notifications.
+
+props
+  allHref: String
+
+uses
+  Live
+
+state
+  open: false
+
+action
+  ago(value) {
+    const s = Math.max(1, Math.round((Date.now() - new Date(String(value)).getTime()) / 1000))
+    if s < 60 {
+      return "just now"
+    }
+    if s < 3600 {
+      return `${Math.floor(s / 60)}m ago`
+    }
+    if s < 86400 {
+      return `${Math.floor(s / 3600)}h ago`
+    }
+    return `${Math.floor(s / 86400)}d ago`
+  }
+
+  toggle() {
+    this.open = not this.open
+    if this.open {
+      Live.loadNotifications()
+    }
+  }
+
+template
+  <div class="relative">
+    <button type="button" class="tx-icon-btn" aria-label="{{ `Notifications, ${Live.unread} unread` }}" aria-expanded="{{ open }}" onclick="{{ toggle() }}">
+      <IconBell />
+{{#if Live.unread}}<span class="tx-dot">{{ Live.unread > 9 ? "9+" : Live.unread }}</span>{{/if}}
+    </button>
+{{#if open}}
+    <div class="fixed inset-0 z-40" onclick="{{ open = false }}"></div>
+    <div class="absolute right-0 top-full mt-2 z-50 w-[22rem] max-w-[calc(100vw-1.5rem)] tx-panel overflow-hidden fade-up">
+      <div class="px-4 py-3 border-b border-line flex items-center justify-between">
+        <p class="font-semibold text-sm">Notifications</p>
+{{#if Live.unread}}
+        <button type="button" class="text-xs tx-link bg-transparent border-0 cursor-pointer inline-flex items-center gap-1" onclick="{{ Live.markAllRead() }}"><IconCheckCheck class="w-3.5 h-3.5" /> Mark all read</button>
+{{/if}}
+      </div>
+      <div class="max-h-[24rem] overflow-y-auto">
+{{#each n in Live.notifications.slice(0, 12)}}
+        <button type="button" class="{{ 'w-full text-left px-4 py-3 flex gap-3 border-0 border-b border-line last:border-b-0 hover:bg-raised cursor-pointer ' + (n.read_at ? 'bg-transparent' : 'bg-brand-soft/5') }}" onclick="{{ Live.open(n) }}">
+          <span class="{{ 'tx-stat-icon shrink-0 bg-raised ' + (n.read_at ? 'text-muted' : 'text-brand') }}">
+{{#if n.kind is "ticket"}}<IconTicket />{{#else if n.kind is "message"}}<IconMessageCircle />{{#else if n.kind is "billing"}}<IconReceipt />{{#else if n.kind is "project"}}<IconKanban />{{#else if n.kind is "lead"}}<IconTarget />{{#else if n.kind is "rating"}}<IconStar />{{#else if n.kind is "career"}}<IconBriefcase />{{#else if n.kind is "signup"}}<IconUserAdd />{{#else}}<IconInformationCircle />{{/if}}
+          </span>
+          <span class="min-w-0 flex-1">
+            <span class="block text-sm text-ink leading-snug" class:font-semibold="{{ not n.read_at }}">{{ n.title }}</span>
+{{#if n.body}}<span class="block text-xs text-muted mt-0.5 line-clamp-2">{{ n.body }}</span>{{/if}}
+            <span class="block text-[11px] text-muted mt-1">{{ ago(n.created_at) }}</span>
+          </span>
+{{#if not n.read_at}}<span class="w-2 h-2 rounded-full bg-brand mt-1.5 shrink-0"></span>{{/if}}
+        </button>
+{{#else}}
+        <div class="px-4 py-10 text-center text-sm text-muted">You're all caught up.</div>
+{{/each}}
+      </div>
+      <a href="{{ allHref }}" class="block px-4 py-2.5 text-center text-xs font-semibold border-t border-line tx-link">See all notifications</a>
+    </div>
+{{/if}}
+  </div>

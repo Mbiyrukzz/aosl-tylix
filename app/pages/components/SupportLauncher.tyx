@@ -1,0 +1,257 @@
+component SupportLauncher
+
+import { IconMessageCircle, IconX, IconSend, IconWhatsapp, IconPhone, IconTicket, IconCheckCircle, IconArrowRight, IconLifeBuoy } from "tylix-icons"
+
+// The floating "Message support" button, on every public and portal page.
+//
+// Signed-in clients get a live conversation: type a message, it lands in
+// the staff inbox at once (in-app notification for every staff member,
+// plus an email to the support inbox), and replies appear here.
+// Guests get a short contact form and the WhatsApp line instead.
+// Staff never see it (they answer from the console inbox).
+
+uses
+  Auth
+  Live
+
+state
+  open: false
+  loading: false
+  loaded: false
+  messages: []
+  draft: ""
+  sending: false
+  error: ""
+  guest: { name: "", email: "", message: "" }
+  guestSent: false
+  poll: 0
+
+computed
+  visible() {
+    if Auth.loading {
+      return false
+    }
+    return not Auth.isStaff()
+  }
+
+  hasUnread() {
+    return Live.messagesUnread > 0
+  }
+
+action
+  async toggle() {
+    this.open = not this.open
+    if this.open and Auth.user {
+      await this.load(false)
+      clearInterval(this.poll)
+      this.poll = setInterval(() => this.load(true), 8000)
+      setTimeout(() => {
+        const box = document.getElementById("support-input")
+        if box {
+          box.focus()
+        }
+      }, 60)
+    } else {
+      clearInterval(this.poll)
+    }
+  }
+
+  async load(quiet) {
+    if not quiet {
+      this.loading = not this.loaded
+    }
+    const r = await useApi("/api/portal/messages")
+    if r.ok {
+      const grew = r.data.messages.length is not this.messages.length
+      this.messages = r.data.messages
+      this.loaded = true
+      Live.messagesUnread = 0
+      if grew {
+        this.scrollDown()
+      }
+    }
+    this.loading = false
+  }
+
+  scrollDown() {
+    setTimeout(() => {
+      const el = document.getElementById("support-scroll")
+      if el {
+        el.scrollTop = el.scrollHeight
+      }
+    }, 30)
+  }
+
+  async send() {
+    const body = this.draft.trim()
+    if not body or this.sending {
+      return null
+    }
+    this.sending = true
+    this.error = ""
+    const r = await useApi("/api/portal/messages", { method: "POST", body: { body, page_url: window.location.pathname } })
+    this.sending = false
+    if r.ok {
+      this.messages = [...this.messages, r.data]
+      this.draft = ""
+      this.scrollDown()
+    } else {
+      this.error = Live.errorOf(r, "Couldn't send. Try again.")
+    }
+  }
+
+  onEnter(e) {
+    if e.shiftKey {
+      return null
+    }
+    e.preventDefault()
+    this.send()
+  }
+
+  async sendGuest() {
+    this.error = ""
+    if not this.guest.name.trim() or not /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.guest.email) or this.guest.message.trim().length < 10 {
+      this.error = "Add your name, a valid email and a short message (10 characters or more)."
+      return null
+    }
+    this.sending = true
+    const r = await useApi("/api/public/contact", { method: "POST", body: { ...this.guest, topic: "support" } })
+    this.sending = false
+    if r.ok {
+      this.guestSent = true
+    } else {
+      this.error = Live.errorOf(r, "Couldn't send. Try again.")
+    }
+  }
+
+  time(value) {
+    const d = new Date(String(value))
+    const today = new Date().toDateString() is d.toDateString()
+    return today ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : d.toLocaleDateString([], { day: "numeric", month: "short" }) + " · " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  }
+
+  hours() {
+    const now = new Date()
+    const day = now.getDay()
+    const h = now.getHours()
+    return day >= 1 and day <= 6 and h >= 8 and h < 18
+  }
+
+onMount
+  {
+    window.addEventListener("aos:support", () => {
+      if not this.open {
+        this.toggle()
+      }
+    })
+  }
+
+template
+{{#if visible}}
+{{#if open}}
+  <section class="support-panel" role="dialog" aria-label="Message support">
+    <header class="relative overflow-hidden px-5 pt-5 pb-4 bg-[#020617] text-white">
+      <div class="relative flex items-start justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <span class="relative w-11 h-11 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center">
+            <span class="aos-mark h-6 text-[#18c192]"></span>
+            <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#020617]" class:bg-emerald-400="{{ hours() }}" class:bg-slate-400="{{ not hours() }}"></span>
+          </span>
+          <div>
+            <p class="font-semibold leading-tight">Ashmif Support</p>
+            <p class="text-xs text-white/70 mt-0.5">{{ hours() ? "Online now · replies in minutes" : "We reply first thing in the morning" }}</p>
+          </div>
+        </div>
+        <button type="button" class="w-8 h-8 rounded-full flex items-center justify-center text-white/80 hover:bg-white/10" aria-label="Close" onclick="{{ toggle() }}"><IconX class="w-4 h-4" /></button>
+      </div>
+    </header>
+
+{{#if Auth.user}}
+    <div id="support-scroll" class="flex-1 overflow-y-auto px-4 py-4 space-y-3 min-h-[16rem]">
+{{#if loading}}
+      <div class="space-y-3"><div class="tx-skeleton h-10 w-3/4"></div><div class="tx-skeleton h-10 w-2/3 ml-auto"></div></div>
+{{#else}}
+      <div class="flex gap-2.5">
+        <Avatar name="Ashmif Support" size="{{ 28 }}" staff="{{ true }}" />
+        <div class="bubble bubble-them">Hi {{ Auth.firstName() }} 👋 Write your message below and it goes straight to our support team. You'll get the reply here, by email and in your notifications.</div>
+      </div>
+{{#each m in messages}}
+{{#if m.direction is "in"}}
+      <div class="flex gap-2.5 justify-end">
+        <div class="flex flex-col items-end min-w-0">
+          <div class="bubble bubble-me !max-w-full">{{ m.body }}</div>
+          <span class="text-[10px] text-muted mt-1 mr-1">{{ time(m.created_at) }}</span>
+        </div>
+        <Avatar name="{{ Auth.user.name }}" url="{{ Auth.user.avatar_url }}" size="{{ 28 }}" />
+      </div>
+{{#else}}
+      <div class="flex gap-2.5">
+        <Avatar name="{{ m.author?.name ?? 'Ashmif' }}" url="{{ m.author?.avatar_url }}" size="{{ 28 }}" staff="{{ true }}" />
+        <div class="min-w-0">
+          <p class="text-[11px] text-muted mb-1 ml-1">{{ m.author?.name ?? "Ashmif Support" }}</p>
+          <div class="bubble bubble-them">{{ m.body }}</div>
+{{#if m.ticket_id}}
+          <a href="{{ `/portal/tickets/${m.ticket_id}` }}" class="inline-flex items-center gap-1.5 mt-1.5 ml-1 text-xs tx-link"><IconTicket class="w-3.5 h-3.5" /> Open the ticket</a>
+{{/if}}
+          <span class="block text-[10px] text-muted mt-1 ml-1">{{ time(m.created_at) }}</span>
+        </div>
+      </div>
+{{/if}}
+{{/each}}
+{{/if}}
+    </div>
+{{#if error}}
+    <p class="px-4 pb-2 text-xs text-coral" role="alert">{{ error }}</p>
+{{/if}}
+    <form class="border-t border-line p-3 flex items-end gap-2" onsubmit.prevent="{{ send() }}">
+      <label for="support-input" class="sr-only">Your message</label>
+      <textarea id="support-input" rows="1" class="tx-input !rounded-2xl !min-h-0 max-h-32 !py-2.5 text-sm" placeholder="Type your message…" bind:value="{{ draft }}" onkeydown.enter="{{ onEnter($event) }}"></textarea>
+      <button type="submit" class="tx-btn tx-btn-primary !p-0 w-11 h-11 shrink-0" disabled="{{ sending or not draft.trim() }}" aria-label="Send">
+{{#if sending}}<span class="tx-spinner"></span>{{#else}}<IconSend />{{/if}}
+      </button>
+    </form>
+    <div class="px-4 pb-3 flex items-center justify-between text-[11px] text-muted">
+      <span>Enter to send · Shift+Enter for a new line</span>
+      <a href="/portal/tickets/new" class="tx-link">Open a ticket</a>
+    </div>
+{{#else}}
+    <div class="flex-1 overflow-y-auto p-5">
+{{#if guestSent}}
+      <div class="text-center py-6">
+        <IconCheckCircle class="w-10 h-10 text-mint mx-auto mb-3" />
+        <p class="font-semibold">Message sent</p>
+        <p class="text-sm text-muted mt-1">We'll reply to {{ guest.email }} within one business day, usually much sooner.</p>
+      </div>
+{{#else}}
+      <p class="text-sm text-soft mb-4">Leave a message and we'll get back to you by email. Clients reply faster from the portal.</p>
+{{#if error}}
+      <div class="tx-alert tx-alert-error mb-3" role="alert"><p>{{ error }}</p></div>
+{{/if}}
+      <form onsubmit.prevent="{{ sendGuest() }}" class="space-y-3">
+        <input class="tx-input text-sm" placeholder="Your name" autocomplete="name" bind:value="{{ guest.name }}" aria-label="Your name" />
+        <input class="tx-input text-sm" type="email" placeholder="Email address" autocomplete="email" bind:value="{{ guest.email }}" aria-label="Email address" />
+        <textarea class="tx-input text-sm" rows="3" placeholder="How can we help?" bind:value="{{ guest.message }}" aria-label="Message"></textarea>
+        <button type="submit" class="tx-btn tx-btn-primary tx-btn-block" disabled="{{ sending }}">{{ sending ? "Sending…" : "Send message" }} <IconSend /></button>
+      </form>
+{{/if}}
+      <div class="grid grid-cols-2 gap-2 mt-5">
+        <a href="https://wa.me/254758839829" target="_blank" rel="noopener" class="tx-btn tx-btn-outline tx-btn-sm"><IconWhatsapp /> WhatsApp</a>
+        <a href="tel:+254758839829" class="tx-btn tx-btn-outline tx-btn-sm"><IconPhone /> Call us</a>
+      </div>
+      <a href="/login" class="mt-4 flex items-center justify-between rounded-xl border border-line px-3.5 py-3 text-sm no-underline text-ink hover:bg-raised">
+        <span class="flex items-center gap-2"><IconLifeBuoy class="w-4 h-4 text-brand" /> Already a client? Sign in</span>
+        <IconArrowRight class="w-4 h-4 text-muted" />
+      </a>
+    </div>
+{{/if}}
+  </section>
+{{#else}}
+  <button type="button" class="support-fab" onclick="{{ toggle() }}" aria-label="Message support">
+    <IconMessageCircle />
+    <span class="hidden sm:inline">Message support</span>
+{{#if hasUnread}}
+    <span class="absolute -top-1 -right-1 min-w-5 h-5 px-1.5 rounded-full bg-coral text-white text-[11px] font-bold flex items-center justify-center border-2 border-canvas">{{ Live.messagesUnread }}</span>
+{{/if}}
+  </button>
+{{/if}}
+{{/if}}

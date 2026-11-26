@@ -1,0 +1,135 @@
+page PortalCompany
+
+import { IconBuildingOffice, IconUserAdd, IconMail, IconPhone, IconCheckCircle, IconClock, IconSave, IconShieldCheck } from "tylix-icons"
+
+title "Company & team · Ashmif portal"
+
+uses
+  Fmt
+  Live
+  Auth
+
+state
+  company: null
+  manager: null
+  team: []
+  loading: true
+  form: {}
+  saving: false
+  inviteOpen: false
+  invite: { name: "", email: "", job_title: "" }
+  inviting: false
+  error: ""
+
+action
+  async load() {
+    const r = await useApi("/api/portal/company")
+    if r.ok {
+      this.company = r.data.company
+      this.manager = r.data.manager
+      this.team = r.data.team
+      this.form = { name: r.data.company.name, email: r.data.company.email ?? "", phone: r.data.company.phone ?? "", website: r.data.company.website ?? "", address: r.data.company.address ?? "", kra_pin: r.data.company.kra_pin ?? "", industry: r.data.company.industry ?? "" }
+    }
+    this.loading = false
+  }
+
+  async save() {
+    this.saving = true
+    const r = await useApi("/api/portal/company", { method: "PUT", body: this.form })
+    this.saving = false
+    Live.say(r.ok ? "Company details saved" : Live.errorOf(r, "Couldn't save."))
+    if r.ok {
+      Auth.refresh()
+    }
+  }
+
+  async sendInvite() {
+    this.error = ""
+    this.inviting = true
+    const r = await useApi("/api/portal/team", { method: "POST", body: this.invite })
+    this.inviting = false
+    if r.ok {
+      Live.say(`Invitation sent to ${this.invite.email}`)
+      this.inviteOpen = false
+      this.invite = { name: "", email: "", job_title: "" }
+      await this.load()
+    } else {
+      this.error = Live.errorOf(r, "Couldn't send the invitation.")
+    }
+  }
+
+onMount
+  async {
+    await this.load()
+  }
+
+template
+<div>
+  <PageHeader title="Company & team" subtitle="Your company details, your account manager and everyone with portal access.">
+    <button slot="actions" type="button" class="tx-btn tx-btn-primary" onclick="{{ inviteOpen = true }}"><IconUserAdd /> Invite a teammate</button>
+  </PageHeader>
+{{#if loading}}
+  <div class="grid gap-6 lg:grid-cols-[1.3fr_1fr]"><div class="tx-skeleton h-96"></div><div class="tx-skeleton h-72"></div></div>
+{{#else if company}}
+  <div class="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
+    <form class="tx-panel p-5 sm:p-7 min-w-0" onsubmit.prevent="{{ save() }}">
+      <div class="flex items-center gap-3 mb-6">
+        <span class="product-icon bg-brand-soft/10 text-brand"><IconBuildingOffice class="w-6 h-6" /></span>
+        <div><p class="font-bold text-lg">{{ company.name }}</p><p class="text-xs text-muted">Client since {{ Fmt.date(company.created_at) }}</p></div>
+        <span class="ml-auto"><StatusBadge value="{{ company.tier }}" /></span>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-x-4">
+        <div class="tx-field sm:col-span-2"><label class="tx-label" for="co-name">Company name</label><input id="co-name" class="tx-input" bind:value="{{ form.name }}" /></div>
+        <div class="tx-field"><label class="tx-label" for="co-email">Billing email</label><input id="co-email" type="email" class="tx-input" bind:value="{{ form.email }}" /></div>
+        <div class="tx-field"><label class="tx-label" for="co-phone">Phone</label><input id="co-phone" class="tx-input" bind:value="{{ form.phone }}" /></div>
+        <div class="tx-field"><label class="tx-label" for="co-kra">KRA PIN</label><input id="co-kra" class="tx-input font-mono uppercase" placeholder="P0…" bind:value="{{ form.kra_pin }}" /></div>
+        <div class="tx-field"><label class="tx-label" for="co-ind">Industry</label><input id="co-ind" class="tx-input" bind:value="{{ form.industry }}" /></div>
+        <div class="tx-field"><label class="tx-label" for="co-web">Website</label><input id="co-web" class="tx-input" placeholder="https://" bind:value="{{ form.website }}" /></div>
+        <div class="tx-field"><label class="tx-label" for="co-addr">Address</label><input id="co-addr" class="tx-input" bind:value="{{ form.address }}" /></div>
+      </div>
+      <p class="tx-hint mb-4">These details appear on your invoices and receipts.</p>
+      <button type="submit" class="tx-btn tx-btn-primary" disabled="{{ saving }}"><IconSave /> {{ saving ? "Saving…" : "Save details" }}</button>
+    </form>
+
+    <div class="space-y-6 min-w-0">
+{{#if manager}}
+      <section class="relative overflow-hidden rounded-[20px] bg-[#020617] text-white p-5">
+        <div class="relative">
+          <p class="text-xs uppercase tracking-wider text-white/60 font-semibold">Your account manager</p>
+          <div class="mt-3 flex items-center gap-3"><Avatar name="{{ manager.name }}" url="{{ manager.avatar_url }}" size="{{ 44 }}" staff="{{ true }}" /><div><p class="font-semibold">{{ manager.name }}</p><p class="text-xs text-white/60">{{ manager.job_title ?? "Ashmif Office Solutions" }}</p></div></div>
+          <div class="mt-4 flex flex-wrap gap-2">
+{{#if manager.email}}<a href="{{ 'mailto:' + manager.email }}" class="tx-btn tx-btn-sm !bg-white/10 !text-white !border-white/20"><IconMail /> Email</a>{{/if}}
+{{#if manager.phone}}<a href="{{ 'tel:' + manager.phone }}" class="tx-btn tx-btn-sm !bg-white/10 !text-white !border-white/20"><IconPhone /> Call</a>{{/if}}
+          </div>
+        </div>
+      </section>
+{{/if}}
+      <section class="tx-panel overflow-hidden">
+        <div class="px-5 py-4 border-b border-line flex items-center justify-between"><h2 class="font-semibold">Team <span class="text-muted font-normal">({{ team.length }})</span></h2></div>
+        <ul class="tx-list">
+{{#each u in team}}
+          <li class="px-5 py-3.5 flex items-center gap-3">
+            <Avatar name="{{ u.name }}" url="{{ u.avatar_url }}" size="{{ 36 }}" />
+            <div class="min-w-0 flex-1"><p class="text-sm font-semibold truncate">{{ u.name }}{{#if u.you}} <span class="text-muted font-normal">(you)</span>{{/if}}</p><p class="text-xs text-muted truncate">{{ u.job_title ? u.job_title + " · " : "" }}{{ u.email }}</p></div>
+{{#if u.last_seen_at}}<span class="text-[11px] text-muted hidden sm:block">Active {{ Fmt.ago(u.last_seen_at) }}</span>{{#else}}<span class="tx-badge tone-peach"><IconClock class="w-3 h-3" /> Invited</span>{{/if}}
+          </li>
+{{/each}}
+        </ul>
+      </section>
+      <div class="tx-panel p-4 flex gap-3 text-sm text-muted"><IconShieldCheck class="w-5 h-5 text-brand shrink-0" /> Everyone on your team sees the same tickets, projects and invoices for {{ company.name }}.</div>
+    </div>
+  </div>
+{{/if}}
+
+{{#if inviteOpen}}
+  <Modal title="Invite a teammate" subtitle="They'll get an email to set their password." onClose="{{ () => inviteOpen = false }}">
+{{#if error}}<div class="tx-alert tx-alert-error mb-4" role="alert"><p>{{ error }}</p></div>{{/if}}
+    <form onsubmit.prevent="{{ sendInvite() }}" novalidate>
+      <div class="tx-field"><label class="tx-label" for="i-name">Name</label><input id="i-name" class="tx-input" bind:value="{{ invite.name }}" /></div>
+      <div class="tx-field"><label class="tx-label" for="i-email">Email</label><input id="i-email" type="email" class="tx-input" bind:value="{{ invite.email }}" /></div>
+      <div class="tx-field"><label class="tx-label" for="i-title">Job title <span class="text-muted font-normal">(optional)</span></label><input id="i-title" class="tx-input" bind:value="{{ invite.job_title }}" /></div>
+      <div class="flex justify-end gap-2"><button type="button" class="tx-btn tx-btn-ghost" onclick="{{ inviteOpen = false }}">Cancel</button><button type="submit" class="tx-btn tx-btn-primary" disabled="{{ inviting }}">{{ inviting ? "Sending…" : "Send invitation" }}</button></div>
+    </form>
+  </Modal>
+{{/if}}
+</div>

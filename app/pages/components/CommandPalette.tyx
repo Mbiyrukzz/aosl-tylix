@@ -1,0 +1,141 @@
+component CommandPalette
+
+import { IconSearch, IconArrowRight, IconCornerDownLeft } from "tylix-icons"
+
+// Ctrl/Cmd+K: jump to any page or start a common action by typing.
+
+props
+  area: String
+
+uses
+  Live
+  Theme
+
+state
+  query: ""
+  index: 0
+
+computed
+  commands() {
+    if this.area is "admin" {
+      return [
+        { label: "Overview", hint: "Console home", href: "/admin" },
+        { label: "Inbox", hint: "Quick support messages", href: "/admin/inbox" },
+        { label: "Tickets", hint: "Every support ticket", href: "/admin/tickets" },
+        { label: "New ticket for a client", hint: "Phone, email or walk-in", href: "/admin/tickets?new=1" },
+        { label: "Companies", hint: "Clients and their people", href: "/admin/clients" },
+        { label: "Add a company", hint: "New client", href: "/admin/clients?new=1" },
+        { label: "Services & renewals", hint: "Subscriptions, domains, hosting", href: "/admin/services" },
+        { label: "Projects", hint: "Delivery and updates", href: "/admin/projects" },
+        { label: "Billing", hint: "Invoices and quotations", href: "/admin/billing" },
+        { label: "New invoice", hint: "Billing", href: "/admin/billing/new?kind=invoice" },
+        { label: "New quotation", hint: "Billing", href: "/admin/billing/new?kind=quote" },
+        { label: "Leads", hint: "Website enquiries", href: "/admin/leads" },
+        { label: "Careers", hint: "Roles and applications", href: "/admin/careers" },
+        { label: "Status & news", hint: "Incidents and announcements", href: "/admin/broadcasts" },
+        { label: "Staff", hint: "Team members", href: "/admin/team" },
+        { label: "Settings", hint: "Your profile", href: "/admin/settings" },
+        { label: "Switch theme", hint: "Dark / light", action: "theme" }
+      ]
+    }
+    return [
+      { label: "Overview", hint: "Portal home", href: "/portal" },
+      { label: "New support ticket", hint: "Report an issue", href: "/portal/tickets/new" },
+      { label: "Support tickets", hint: "All your tickets", href: "/portal/tickets" },
+      { label: "Messages", hint: "Chat with support", href: "/portal/messages" },
+      { label: "Services", hint: "Subscriptions and renewals", href: "/portal/services" },
+      { label: "Projects", hint: "Follow progress", href: "/portal/projects" },
+      { label: "Billing", hint: "Invoices, quotes and receipts", href: "/portal/billing" },
+      { label: "Add a product", hint: "Request a new product or Sender ID", href: "/portal/catalog" },
+      { label: "Request a Sender ID", hint: "Ashmif SMS", href: "/portal/catalog?request=sender_id" },
+      { label: "Company & team", hint: "Invite teammates", href: "/portal/company" },
+      { label: "Notifications", hint: "Everything that happened", href: "/portal/notifications" },
+      { label: "Profile & security", hint: "Password and alerts", href: "/portal/settings" },
+      { label: "System status", hint: "Are our products up?", href: "/status" },
+      { label: "Switch theme", hint: "Dark / light", action: "theme" }
+    ]
+  }
+
+  results() {
+    const q = this.query.trim().toLowerCase()
+    if not q {
+      return this.commands
+    }
+    return this.commands.filter(c => c.label.toLowerCase().includes(q) or c.hint.toLowerCase().includes(q))
+  }
+
+action
+  close() {
+    Live.paletteOpen = false
+    this.query = ""
+    this.index = 0
+  }
+
+  run(c) {
+    if not c {
+      return null
+    }
+    if c.action is "theme" {
+      Theme.toggle()
+      this.close()
+      return null
+    }
+    window.location.href = c.href ?? "/"
+  }
+
+  key(e) {
+    if e.key is "ArrowDown" {
+      e.preventDefault()
+      this.index = Math.min(this.results.length - 1, this.index + 1)
+    } else if e.key is "ArrowUp" {
+      e.preventDefault()
+      this.index = Math.max(0, this.index - 1)
+    } else if e.key is "Enter" {
+      e.preventDefault()
+      this.run(this.results[this.index])
+    } else if e.key is "Escape" {
+      this.close()
+    }
+  }
+
+onMount
+  {
+    document.addEventListener("keydown", (e) => {
+      if (e.ctrlKey or e.metaKey) and e.key.toLowerCase() is "k" {
+        e.preventDefault()
+        Live.paletteOpen = not Live.paletteOpen
+        setTimeout(() => {
+          const el = document.getElementById("palette-input")
+          if el {
+            el.focus()
+          }
+        }, 30)
+      }
+    })
+  }
+
+template
+{{#if Live.paletteOpen}}
+  <div class="tx-modal-scrim !items-start sm:!pt-[12vh]" onclick.self="{{ close() }}">
+    <div class="tx-modal !max-w-xl overflow-hidden" role="dialog" aria-label="Command palette">
+      <div class="flex items-center gap-3 px-4 border-b border-line">
+        <IconSearch class="w-5 h-5 text-muted" />
+        <input id="palette-input" class="flex-1 h-14 bg-transparent border-0 outline-none text-base text-ink placeholder:text-muted" placeholder="Where to?" autocomplete="off" bind:value="{{ query }}" oninput="{{ index = 0 }}" onkeydown="{{ key($event) }}" />
+        <kbd class="text-[10px] text-muted border border-line rounded px-1.5 py-0.5">Esc</kbd>
+      </div>
+      <ul class="max-h-[22rem] overflow-y-auto p-2">
+{{#each c, i in results}}
+        <li>
+          <button type="button" class="{{ 'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left border-0 cursor-pointer ' + (i is index ? 'bg-brand-soft/10' : 'bg-transparent hover:bg-raised') }}" onmouseenter="{{ index = i }}" onclick="{{ run(c) }}">
+            <IconArrowRight class="{{ 'w-4 h-4 ' + (i is index ? 'text-brand' : 'text-muted') }}" />
+            <span class="flex-1 min-w-0"><span class="block text-sm font-medium text-ink">{{ c.label }}</span><span class="block text-xs text-muted">{{ c.hint }}</span></span>
+{{#if i is index}}<IconCornerDownLeft class="w-4 h-4 text-muted" />{{/if}}
+          </button>
+        </li>
+{{#else}}
+        <li class="px-3 py-8 text-center text-sm text-muted">Nothing matches "{{ query }}".</li>
+{{/each}}
+      </ul>
+    </div>
+  </div>
+{{/if}}

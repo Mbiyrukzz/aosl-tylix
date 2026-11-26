@@ -1,0 +1,85 @@
+component ProjectForm
+
+import { IconPlus, IconX } from "tylix-icons"
+
+// Create or edit a project with its milestones (console).
+
+props
+  project: Object
+  companyId: Number
+  companies: any[]
+  staff: any[]
+  onSaved: Function
+  onCancel: Function
+
+uses
+  Live
+
+state
+  form: { company_id: "", title: "", description: "", status: "not_started", priority: "normal", progress: 0, starts_on: "", due_on: "", lead_id: "", internal_notes: "", milestones: [] }
+  saving: false
+  error: ""
+
+action
+  addMilestone() {
+    this.form.milestones = [...this.form.milestones, { title: "", done: false, due_on: "" }]
+  }
+
+  removeMilestone(i) {
+    this.form.milestones = this.form.milestones.filter((_, j) => j is not i)
+  }
+
+  async save() {
+    this.error = ""
+    this.saving = true
+    const p = this.project
+    const r = p ? await useApi(`/api/admin/projects/${p.id}`, { method: "PUT", body: this.form }) : await useApi("/api/admin/projects", { method: "POST", body: this.form })
+    this.saving = false
+    if r.ok {
+      this.onSaved(r.data)
+    } else {
+      this.error = Live.errorOf(r, "Couldn't save.")
+    }
+  }
+
+onMount
+  {
+    const p = this.project
+    if p {
+      this.form = { company_id: String(p.company_id), title: p.title ?? "", description: p.description ?? "", status: p.status ?? "not_started", priority: p.priority ?? "normal", progress: Number(p.progress ?? 0), starts_on: p.starts_on ? String(p.starts_on).slice(0, 10) : "", due_on: p.due_on ? String(p.due_on).slice(0, 10) : "", lead_id: p.lead_id ? String(p.lead_id) : "", internal_notes: p.internal_notes ?? "", milestones: (p.milestones ?? []).map(m => ({ title: m.title, done: Boolean(m.done), due_on: m.due_on ? String(m.due_on).slice(0, 10) : "" })) }
+    } else if this.companyId {
+      this.form.company_id = String(this.companyId)
+    }
+  }
+
+template
+  <form onsubmit.prevent="{{ save() }}" novalidate>
+{{#if error}}<div class="tx-alert tx-alert-error mb-4" role="alert"><p>{{ error }}</p></div>{{/if}}
+    <div class="grid sm:grid-cols-2 gap-x-4">
+{{#if not companyId and not project}}
+      <div class="tx-field sm:col-span-2"><label class="tx-label" for="pf-co">Company</label><select id="pf-co" class="tx-input" bind:value="{{ form.company_id }}"><option value="">Pick a company</option>{{#each c in companies}}<option value="{{ String(c.id) }}">{{ c.name }}</option>{{/each}}</select></div>
+{{/if}}
+      <div class="tx-field sm:col-span-2"><label class="tx-label" for="pf-title">Title</label><input id="pf-title" class="tx-input" bind:value="{{ form.title }}" /></div>
+      <div class="tx-field sm:col-span-2"><label class="tx-label" for="pf-desc">Description <span class="text-muted font-normal">(the client sees this)</span></label><textarea id="pf-desc" rows="3" class="tx-input" bind:value="{{ form.description }}"></textarea></div>
+      <div class="tx-field"><label class="tx-label" for="pf-status">Status</label><select id="pf-status" class="tx-input" bind:value="{{ form.status }}"><option value="not_started">Not started</option><option value="in_progress">In progress</option><option value="review">In review</option><option value="on_hold">On hold</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></div>
+      <div class="tx-field"><label class="tx-label" for="pf-lead">Project lead</label><select id="pf-lead" class="tx-input" bind:value="{{ form.lead_id }}"><option value="">Me</option>{{#each s in staff}}<option value="{{ String(s.id) }}">{{ s.name }}</option>{{/each}}</select></div>
+      <div class="tx-field"><label class="tx-label" for="pf-start">Start</label><input id="pf-start" type="date" class="tx-input" bind:value="{{ form.starts_on }}" /></div>
+      <div class="tx-field"><label class="tx-label" for="pf-due">Target</label><input id="pf-due" type="date" class="tx-input" bind:value="{{ form.due_on }}" /></div>
+      <div class="tx-field sm:col-span-2"><label class="tx-label" for="pf-prog">Progress: {{ form.progress }}%</label><input id="pf-prog" type="range" min="0" max="100" step="5" class="w-full accent-[rgb(var(--tx-brand))]" bind:value="{{ form.progress }}" /></div>
+    </div>
+    <div class="tx-field">
+      <div class="flex items-center justify-between mb-2"><span class="tx-label !mb-0">Milestones</span><button type="button" class="tx-btn tx-btn-ghost tx-btn-sm" onclick="{{ addMilestone() }}"><IconPlus /> Add</button></div>
+{{#each m, i in form.milestones}}
+      <div class="flex items-center gap-2 mb-2">
+        <input type="checkbox" class="tx-check" aria-label="Done" bind:checked="{{ m.done }}" />
+        <input class="tx-input text-sm" placeholder="Milestone" aria-label="Milestone title" bind:value="{{ m.title }}" />
+        <input type="date" class="tx-input text-sm !w-40" aria-label="Due date" bind:value="{{ m.due_on }}" />
+        <button type="button" class="tx-icon-btn" aria-label="Remove milestone" onclick="{{ removeMilestone(i) }}"><IconX /></button>
+      </div>
+{{#else}}
+      <p class="text-sm text-muted">No milestones yet.</p>
+{{/each}}
+    </div>
+    <div class="tx-field"><label class="tx-label" for="pf-notes">Internal notes <span class="text-muted font-normal">(staff only)</span></label><textarea id="pf-notes" rows="2" class="tx-input" bind:value="{{ form.internal_notes }}"></textarea></div>
+    <div class="flex justify-end gap-2"><button type="button" class="tx-btn tx-btn-ghost" onclick="{{ onCancel() }}">Cancel</button><button type="submit" class="tx-btn tx-btn-primary" disabled="{{ saving }}">{{ saving ? "Saving…" : project ? "Save project" : "Create project" }}</button></div>
+  </form>

@@ -1,0 +1,101 @@
+page PortalProject
+
+import { IconCheckCircle, IconCircle, IconCalendar, IconMessageCircle, IconUser, IconFlag } from "tylix-icons"
+
+props
+  id: string
+
+uses
+  Fmt
+  Live
+
+state
+  project: null
+  updates: []
+  loading: true
+  isMissing: false
+
+onMount
+  async {
+    const r = await useApi(`/api/portal/projects/${this.id}`)
+    if r.ok {
+      this.project = r.data.project
+      this.updates = r.data.updates
+      document.title = `${r.data.project.title} · Ashmif portal`
+    } else {
+      this.isMissing = true
+    }
+    this.loading = false
+  }
+
+template
+<div>
+{{#if loading}}
+  <div class="tx-skeleton h-40 mb-6"></div><div class="tx-skeleton h-64"></div>
+{{#else if isMissing}}
+  <div class="tx-empty"><p class="font-semibold">Project not found</p><a href="/portal/projects" class="tx-btn tx-btn-primary tx-btn-sm mt-4">All projects</a></div>
+{{#else}}
+  <PageHeader title="{{ project.title }}" back="/portal/projects" backLabel="Projects">
+    <span slot="actions"><StatusBadge value="{{ project.status }}" dot="{{ true }}" /></span>
+  </PageHeader>
+
+  <section class="relative overflow-hidden tx-panel p-6 sm:p-8 mb-6">
+    <div class="relative grid gap-6 md:grid-cols-[1fr_auto] items-center">
+      <div>
+{{#if project.description}}<p class="text-soft leading-relaxed">{{ project.description }}</p>{{/if}}
+        <div class="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted">
+          <span class="flex items-center gap-1.5"><IconCalendar class="w-4 h-4" /> Started {{ Fmt.date(project.starts_on) }}</span>
+          <span class="flex items-center gap-1.5"><IconFlag class="w-4 h-4" /> Target {{ Fmt.date(project.due_on) }}</span>
+{{#if project.lead}}<span class="flex items-center gap-1.5"><IconUser class="w-4 h-4" /> Led by {{ project.lead.name }}</span>{{/if}}
+        </div>
+      </div>
+      <div class="relative w-32 h-32 mx-auto">
+        <svg viewBox="0 0 36 36" class="w-full h-full -rotate-90"><circle cx="18" cy="18" r="15.9" fill="none" stroke="rgb(var(--tx-well))" stroke-width="3" /><circle cx="18" cy="18" r="15.9" fill="none" stroke="rgb(var(--tx-brand))" stroke-width="3" stroke-linecap="round" stroke-dasharray="{{ project.progress + ' 100' }}" /></svg>
+        <div class="absolute inset-0 flex flex-col items-center justify-center"><span class="text-2xl font-bold tabular">{{ project.progress }}%</span><span class="text-[11px] text-muted">complete</span></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="grid gap-6 lg:grid-cols-[1fr_20rem]">
+    <section class="min-w-0">
+      <h2 class="font-semibold mb-4">Updates from the team</h2>
+      <ol class="relative border-l-2 border-line ml-3 space-y-6">
+{{#each u in updates}}
+        <li class="pl-6 relative">
+          <span class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-brand border-4 border-canvas"></span>
+          <div class="tx-panel p-5">
+            <div class="flex flex-wrap items-center gap-2 text-xs text-muted">
+              <Avatar name="{{ u.author?.name ?? 'Ashmif' }}" url="{{ u.author?.avatar_url }}" size="{{ 22 }}" staff="{{ true }}" /> <span class="font-semibold text-ink">{{ u.author?.name ?? "Ashmif" }}</span> · {{ Fmt.dateTime(u.created_at) }}
+{{#if u.progress !== null}}<span class="tx-badge tone-brand ml-auto">{{ u.progress }}%</span>{{/if}}
+            </div>
+            <p class="mt-3 tx-prose">{{ u.body }}</p>
+          </div>
+        </li>
+{{#else}}
+        <li class="pl-6 text-sm text-muted">Updates will appear here as work progresses.</li>
+{{/each}}
+      </ol>
+    </section>
+    <aside class="space-y-4">
+      <div class="tx-panel p-5">
+        <p class="font-semibold mb-4">Milestones</p>
+        <ul class="space-y-3">
+{{#each m in project.milestones}}
+          <li class="flex items-start gap-3 text-sm">
+{{#if m.done}}<IconCheckCircle class="w-5 h-5 text-mint shrink-0" />{{#else}}<IconCircle class="w-5 h-5 text-muted shrink-0" />{{/if}}
+            <span class="min-w-0"><span class="block" class:line-through="{{ m.done }}" class:text-muted="{{ m.done }}">{{ m.title }}</span>{{#if m.due_on}}<span class="block text-xs text-muted">{{ Fmt.date(m.due_on) }}</span>{{/if}}</span>
+          </li>
+{{#else}}
+          <li class="text-sm text-muted">No milestones yet.</li>
+{{/each}}
+        </ul>
+      </div>
+      <div class="tx-panel p-5">
+        <p class="font-semibold">Questions about this project?</p>
+        <p class="text-sm text-muted mt-1">Message the team directly.</p>
+        <button type="button" class="tx-btn tx-btn-outline tx-btn-sm mt-4" onclick="{{ Live.openSupport() }}"><IconMessageCircle /> Message us</button>
+      </div>
+    </aside>
+  </div>
+{{/if}}
+</div>

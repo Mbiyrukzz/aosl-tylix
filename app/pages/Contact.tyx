@@ -1,0 +1,151 @@
+page Contact
+
+import { IconMail, IconPhone, IconMapPin, IconWhatsapp, IconSend, IconCheckCircle, IconClock, IconLifeBuoy, IconArrowRight } from "tylix-icons"
+
+title "Contact · Ashmif Office Solutions"
+
+uses
+  Catalog
+  Auth
+  Live
+
+state
+  form: { name: "", email: "", phone: "", company: "", topic: "general", product: "", message: "" }
+  errors: {}
+  error: ""
+  sending: false
+  sent: false
+  topics: [
+    { value: "general", label: "General question" },
+    { value: "sales", label: "Pricing & sales" },
+    { value: "project", label: "A custom project" },
+    { value: "sms", label: "Bulk SMS / Sender ID" },
+    { value: "email", label: "Business email" },
+    { value: "support", label: "Support for a product" },
+    { value: "partnership", label: "Partnership" }
+  ]
+
+action
+  fieldError(name) {
+    const list = Reflect.get(this.errors, name)
+    return Array.isArray(list) ? String(list[0]) : ""
+  }
+
+  async submit() {
+    this.error = ""
+    this.errors = {}
+    this.sending = true
+    const r = await useApi("/api/public/contact", { method: "POST", body: this.form })
+    this.sending = false
+    if r.ok {
+      this.sent = true
+      return null
+    }
+    if r.data?.errors {
+      this.errors = r.data.errors
+    } else {
+      this.error = Live.errorOf(r, "Couldn't send your message. Email us at hello@ashmif.com.")
+    }
+  }
+
+onMount
+  {
+    const params = new URLSearchParams(window.location.search)
+    const product = params.get("product")
+    if product and Catalog.find(product) {
+      this.form.product = product
+      this.form.topic = product is "sms" ? "sms" : "sales"
+    }
+    const topic = params.get("topic")
+    if topic {
+      this.form.topic = topic
+    }
+    if Auth.user {
+      this.form.name = Auth.user.name ?? ""
+      this.form.email = Auth.user.email ?? ""
+    }
+  }
+
+template
+<div class="relative overflow-hidden">
+  <div class="absolute inset-x-0 top-0 h-[36rem] bg-grid mask-fade-b"></div>
+  <div class="relative tx-container py-14 sm:py-20 grid gap-10 lg:grid-cols-[1fr_1.2fr]">
+    <div>
+      <p class="tx-eyebrow mb-5">Contact</p>
+      <h1 class="text-4xl sm:text-5xl font-bold tracking-tight text-balance">Let's talk about what you need</h1>
+      <p class="mt-5 text-lg text-soft">A question, a quote or a whole new system: write to us and a real person replies within one business day.</p>
+      <div class="mt-9 grid gap-3">
+        <a href="mailto:hello@ashmif.com" class="tx-panel tx-hover p-4 flex items-center gap-4 no-underline text-ink"><span class="tx-stat-icon bg-brand-soft/10 text-brand !w-10 !h-10"><IconMail /></span><span><span class="block text-xs text-muted">Email</span><span class="font-semibold">hello@ashmif.com</span></span></a>
+        <a href="tel:+254758839829" class="tx-panel tx-hover p-4 flex items-center gap-4 no-underline text-ink"><span class="tx-stat-icon bg-brand-soft/10 text-brand !w-10 !h-10"><IconPhone /></span><span><span class="block text-xs text-muted">Phone</span><span class="font-semibold">+254 758 839 829</span></span></a>
+        <a href="https://wa.me/254758839829" target="_blank" rel="noopener" class="tx-panel tx-hover p-4 flex items-center gap-4 no-underline text-ink"><span class="tx-stat-icon bg-brand-soft/10 text-brand !w-10 !h-10"><IconWhatsapp /></span><span><span class="block text-xs text-muted">WhatsApp</span><span class="font-semibold">Chat with us</span></span></a>
+        <div class="tx-panel p-4 flex items-center gap-4"><span class="tx-stat-icon bg-brand-soft/10 text-brand !w-10 !h-10"><IconMapPin /></span><span><span class="block text-xs text-muted">Office</span><span class="font-semibold">Mombasa, Kenya</span><span class="block text-xs text-muted">Mon–Sat, 8am–6pm EAT</span></span></div>
+      </div>
+      <a href="{{ Auth.user ? '/portal/tickets/new' : '/login' }}" class="mt-6 flex items-center justify-between rounded-2xl border border-dashed border-line-strong p-4 no-underline text-ink hover:bg-raised">
+        <span class="flex items-center gap-3"><IconLifeBuoy class="w-5 h-5 text-brand" /><span><span class="block font-semibold text-sm">Already a client?</span><span class="block text-xs text-muted">Open a ticket in the portal for the fastest answer.</span></span></span>
+        <IconArrowRight class="w-4 h-4 text-muted" />
+      </a>
+    </div>
+
+    <div class="tx-panel p-6 sm:p-8">
+{{#if sent}}
+      <div class="text-center py-12">
+        <IconCheckCircle class="w-14 h-14 text-mint mx-auto" />
+        <h2 class="mt-5 text-2xl font-bold">Thank you, {{ form.name.split(" ")[0] }}</h2>
+        <p class="mt-2 text-soft">Your message is with our team. We've emailed a copy to {{ form.email }} and will reply within one business day.</p>
+        <a href="/products" class="tx-btn tx-btn-outline mt-7">Browse our products</a>
+      </div>
+{{#else}}
+      <h2 class="text-xl font-bold tracking-tight">Send us a message</h2>
+      <p class="text-sm text-muted mt-1 mb-6"><IconClock class="inline w-3.5 h-3.5 -mt-0.5" /> Usually answered the same day</p>
+{{#if error}}
+      <div class="tx-alert tx-alert-error mb-5" role="alert"><p>{{ error }}</p></div>
+{{/if}}
+      <form onsubmit.prevent="{{ submit() }}" novalidate>
+        <div class="grid sm:grid-cols-2 gap-x-4">
+          <div class="tx-field">
+            <label class="tx-label" for="c-name">Name</label>
+            <input id="c-name" class="tx-input" autocomplete="name" bind:value="{{ form.name }}" aria-invalid="{{ fieldError('name') ? 'true' : 'false' }}" />
+{{#if fieldError("name")}}<p class="tx-error">{{ fieldError("name") }}</p>{{/if}}
+          </div>
+          <div class="tx-field">
+            <label class="tx-label" for="c-email">Email</label>
+            <input id="c-email" type="email" class="tx-input" autocomplete="email" bind:value="{{ form.email }}" aria-invalid="{{ fieldError('email') ? 'true' : 'false' }}" />
+{{#if fieldError("email")}}<p class="tx-error">{{ fieldError("email") }}</p>{{/if}}
+          </div>
+          <div class="tx-field">
+            <label class="tx-label" for="c-phone">Phone <span class="text-muted font-normal">(optional)</span></label>
+            <input id="c-phone" type="tel" class="tx-input" autocomplete="tel" bind:value="{{ form.phone }}" />
+          </div>
+          <div class="tx-field">
+            <label class="tx-label" for="c-company">Company <span class="text-muted font-normal">(optional)</span></label>
+            <input id="c-company" class="tx-input" autocomplete="organization" bind:value="{{ form.company }}" />
+          </div>
+          <div class="tx-field">
+            <label class="tx-label" for="c-topic">Topic</label>
+            <select id="c-topic" class="tx-input" bind:value="{{ form.topic }}">
+{{#each t in topics}}
+              <option value="{{ t.value }}">{{ t.label }}</option>
+{{/each}}
+            </select>
+          </div>
+          <div class="tx-field">
+            <label class="tx-label" for="c-product">Product <span class="text-muted font-normal">(optional)</span></label>
+            <select id="c-product" class="tx-input" bind:value="{{ form.product }}">
+              <option value="">Not product-specific</option>
+{{#each p in Catalog.products}}
+              <option value="{{ p.slug }}">{{ p.name }}</option>
+{{/each}}
+            </select>
+          </div>
+        </div>
+        <div class="tx-field">
+          <label class="tx-label" for="c-message">Message</label>
+          <textarea id="c-message" rows="6" class="tx-input" placeholder="Tell us what you're working on, and what a good outcome looks like." bind:value="{{ form.message }}" aria-invalid="{{ fieldError('message') ? 'true' : 'false' }}"></textarea>
+{{#if fieldError("message")}}<p class="tx-error">{{ fieldError("message") }}</p>{{/if}}
+        </div>
+        <button type="submit" class="tx-btn tx-btn-primary tx-btn-lg w-full sm:w-auto" disabled="{{ sending }}">{{ sending ? "Sending…" : "Send message" }} <IconSend /></button>
+      </form>
+{{/if}}
+    </div>
+  </div>
+</div>

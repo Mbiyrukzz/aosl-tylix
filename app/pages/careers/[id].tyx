@@ -1,0 +1,156 @@
+page CareerDetail
+
+import { IconArrowLeft, IconMapPin, IconBriefcase, IconUpload, IconCheckCircle, IconFile, IconX, IconSend } from "tylix-icons"
+
+props
+  id: string
+
+uses
+  Live
+
+state
+  job: null
+  loading: true
+  isMissing: false
+  form: { name: "", email: "", phone: "", portfolio: "", cover_letter: "" }
+  cv: ""
+  cvName: ""
+  error: ""
+  sending: false
+  sent: false
+
+computed
+  general() {
+    return this.id is "general"
+  }
+
+action
+  label(value) {
+    return String(value ?? "").replace(/_/g, " ").replace(/^./, c => c.toUpperCase())
+  }
+
+  pick(e) {
+    const file = e.target.files?.[0]
+    if not file {
+      return null
+    }
+    if file.size > 3 * 1024 * 1024 {
+      this.error = "Your CV must be 3 MB or smaller."
+      return null
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      this.cv = String(reader.result)
+      this.cvName = file.name
+      this.error = ""
+    }
+    reader.readAsDataURL(file)
+  }
+
+  clearCv() {
+    this.cv = ""
+    this.cvName = ""
+  }
+
+  async submit() {
+    this.error = ""
+    if not this.form.name.trim() or not /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.form.email) {
+      this.error = "Add your name and a valid email."
+      return null
+    }
+    if not this.cv {
+      this.error = "Attach your CV (PDF or Word)."
+      return null
+    }
+    this.sending = true
+    const r = await useApi("/api/public/careers/apply", { method: "POST", body: { ...this.form, cv: this.cv, cv_name: this.cvName, opening_id: this.general ? null : this.job?.id } })
+    this.sending = false
+    if r.ok {
+      this.sent = true
+    } else {
+      this.error = Live.errorOf(r, "Couldn't send your application. Try again.")
+    }
+  }
+
+onMount
+  async {
+    if this.general {
+      document.title = "General application · Ashmif careers"
+      this.loading = false
+      return null
+    }
+    const r = await useApi(`/api/public/careers/${this.id}`)
+    if r.ok {
+      this.job = r.data
+      document.title = `${r.data.title} · Ashmif careers`
+    } else {
+      this.isMissing = true
+    }
+    this.loading = false
+  }
+
+template
+<div class="tx-container py-12 sm:py-16">
+  <a href="/careers" class="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink no-underline mb-8"><IconArrowLeft class="w-4 h-4" /> All roles</a>
+{{#if loading}}
+  <div class="tx-skeleton h-10 w-2/3 mb-4"></div><div class="tx-skeleton h-64"></div>
+{{#else if isMissing}}
+  <div class="tx-empty"><p class="font-semibold">This role isn't open any more</p><a href="/careers/general" class="tx-btn tx-btn-primary mt-4">Send a general application</a></div>
+{{#else}}
+  <div class="grid gap-8 lg:grid-cols-[1.3fr_1fr]">
+    <div class="min-w-0">
+{{#if general}}
+      <h1 class="text-3xl sm:text-4xl font-bold tracking-tight">General application</h1>
+      <p class="mt-4 text-soft leading-relaxed">Engineers, designers, support specialists and sales people: if you'd love to build software for East African businesses, tell us about yourself.</p>
+{{#else}}
+      <h1 class="text-3xl sm:text-4xl font-bold tracking-tight">{{ job.title }}</h1>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <span class="tx-badge"><IconBriefcase class="w-3 h-3" /> {{ label(job.department) }}</span>
+        <span class="tx-badge"><IconMapPin class="w-3 h-3" /> {{ job.location }}</span>
+        <span class="tx-badge tone-brand">{{ label(job.employment) }}</span>
+{{#if job.salary}}<span class="tx-badge tone-gold">{{ job.salary }}</span>{{/if}}
+      </div>
+      <h2 class="mt-10 text-lg font-bold">About the role</h2>
+      <p class="mt-3 tx-prose">{{ job.description }}</p>
+{{#if job.requirements}}
+      <h2 class="mt-8 text-lg font-bold">What you'll bring</h2>
+      <p class="mt-3 tx-prose">{{ job.requirements }}</p>
+{{/if}}
+{{/if}}
+    </div>
+    <aside class="tx-panel p-6 sm:p-7 self-start lg:sticky lg:top-24">
+{{#if sent}}
+      <div class="text-center py-8">
+        <IconCheckCircle class="w-12 h-12 text-mint mx-auto" />
+        <p class="mt-4 text-xl font-bold">Application sent</p>
+        <p class="mt-2 text-sm text-muted">We've emailed you a confirmation. If there's a fit, we'll be in touch.</p>
+      </div>
+{{#else}}
+      <h2 class="text-lg font-bold">Apply</h2>
+      <p class="text-sm text-muted mt-1 mb-5">Takes two minutes.</p>
+{{#if error}}<div class="tx-alert tx-alert-error mb-4" role="alert"><p>{{ error }}</p></div>{{/if}}
+      <form onsubmit.prevent="{{ submit() }}" novalidate>
+        <div class="tx-field"><label class="tx-label" for="a-name">Full name</label><input id="a-name" class="tx-input" autocomplete="name" bind:value="{{ form.name }}" /></div>
+        <div class="tx-field"><label class="tx-label" for="a-email">Email</label><input id="a-email" type="email" class="tx-input" autocomplete="email" bind:value="{{ form.email }}" /></div>
+        <div class="tx-field"><label class="tx-label" for="a-phone">Phone</label><input id="a-phone" type="tel" class="tx-input" autocomplete="tel" bind:value="{{ form.phone }}" /></div>
+        <div class="tx-field"><label class="tx-label" for="a-port">Portfolio, GitHub or LinkedIn <span class="text-muted font-normal">(optional)</span></label><input id="a-port" class="tx-input" bind:value="{{ form.portfolio }}" /></div>
+        <div class="tx-field"><label class="tx-label" for="a-cover">Why Ashmif? <span class="text-muted font-normal">(optional)</span></label><textarea id="a-cover" rows="4" class="tx-input" bind:value="{{ form.cover_letter }}"></textarea></div>
+        <div class="tx-field">
+          <span class="tx-label">CV</span>
+{{#if cvName}}
+          <div class="tx-well px-3 py-2.5 flex items-center gap-2 text-sm"><IconFile class="w-4 h-4 text-brand" /><span class="truncate flex-1">{{ cvName }}</span><button type="button" class="tx-icon-btn !w-7 !h-7" aria-label="Remove file" onclick="{{ clearCv() }}"><IconX /></button></div>
+{{#else}}
+          <label class="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-line-strong p-5 cursor-pointer hover:bg-raised text-sm text-muted">
+            <IconUpload class="w-5 h-5 text-brand" />
+            <span><span class="text-ink font-medium">Choose a file</span> · PDF or Word, up to 3 MB</span>
+            <input type="file" class="sr-only" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onchange="{{ pick($event) }}" />
+          </label>
+{{/if}}
+        </div>
+        <button type="submit" class="tx-btn tx-btn-primary tx-btn-block" disabled="{{ sending }}">{{ sending ? "Sending…" : "Send application" }} <IconSend /></button>
+      </form>
+{{/if}}
+    </aside>
+  </div>
+{{/if}}
+</div>

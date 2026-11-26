@@ -1,0 +1,188 @@
+page PortalCatalog
+
+import { IconSparkles, IconCheck, IconArrowUpRight, IconMessagesSquare, IconCode, IconSend, IconCheckCircle, IconCoins } from "tylix-icons"
+
+title "Add a product · Ashmif portal"
+
+uses
+  Catalog
+  Live
+
+state
+  mode: ""
+  product: ""
+  form: { users: "", timeline: "", budget: "", details: "", sender_id: "", use_case: "", networks: "All networks", units: 5000, title: "" }
+  busy: false
+  done: ""
+  error: ""
+
+computed
+  selected() {
+    return Catalog.find(this.product)
+  }
+
+action
+  open(mode, product) {
+    this.mode = mode
+    this.product = product ?? ""
+    this.done = ""
+    this.error = ""
+  }
+
+  close() {
+    this.mode = ""
+  }
+
+  async submit() {
+    this.error = ""
+    let body = {}
+    if this.mode is "sender_id" {
+      body = { type: "sender_id", sender_id: this.form.sender_id, use_case: this.form.use_case, networks: this.form.networks, details: this.form.details }
+    } else if this.mode is "sms_topup" {
+      body = { type: "sms_topup", units: this.form.units, details: this.form.details }
+    } else if this.mode is "custom" {
+      body = { type: "quote", product: "custom", title: this.form.title, timeline: this.form.timeline, budget: this.form.budget, details: this.form.details }
+    } else {
+      body = { type: "product", product: this.product, users: this.form.users, timeline: this.form.timeline, details: this.form.details }
+    }
+    this.busy = true
+    const r = await useApi("/api/portal/requests", { method: "POST", body })
+    this.busy = false
+    if r.ok {
+      this.done = r.data.ref
+      Live.say(`Request ${r.data.ref} sent`)
+    } else {
+      this.error = Live.errorOf(r, "Couldn't send the request.")
+    }
+  }
+
+onMount
+  {
+    const params = new URLSearchParams(window.location.search)
+    const p = params.get("product")
+    const req = params.get("request")
+    if req is "sender_id" or req is "sms_topup" {
+      this.open(req, "sms")
+    } else if p and Catalog.find(p) {
+      this.open("product", p)
+    }
+  }
+
+template
+<div>
+  <PageHeader title="Add a product or service" subtitle="Request any Ashmif product, a Sender ID, SMS units or custom work. We reply within one business day." />
+
+  <div class="grid gap-4 md:grid-cols-2 mb-8">
+    <div class="relative overflow-hidden tx-panel p-6">
+      <div class="relative">
+        <span class="product-icon bg-brand-soft/15 text-brand"><IconMessagesSquare class="w-6 h-6" /></span>
+        <h2 class="mt-4 text-lg font-bold">Bulk SMS & Sender ID</h2>
+        <p class="mt-1 text-sm text-soft">Register a branded Sender ID so customers see your name, or top up SMS units for your next campaign.</p>
+        <div class="mt-5 flex flex-wrap gap-2">
+          <button type="button" class="tx-btn tx-btn-primary tx-btn-sm" onclick="{{ open('sender_id', 'sms') }}">Register a Sender ID</button>
+          <button type="button" class="tx-btn tx-btn-outline tx-btn-sm" onclick="{{ open('sms_topup', 'sms') }}"><IconCoins /> Top up SMS</button>
+        </div>
+      </div>
+    </div>
+    <div class="relative overflow-hidden tx-panel p-6">
+      <div class="relative">
+        <span class="product-icon bg-gold-soft/15 text-gold"><IconCode class="w-6 h-6" /></span>
+        <h2 class="mt-4 text-lg font-bold">Custom software</h2>
+        <p class="mt-1 text-sm text-soft">A web app, mobile app, integration or website built for how your team works. Tell us the idea and we'll send a quote.</p>
+        <button type="button" class="tx-btn tx-btn-gold tx-btn-sm mt-5" onclick="{{ open('custom', 'custom') }}">Request a quote</button>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="font-semibold mb-4">Products</h2>
+  <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+{{#each p in Catalog.products}}
+    <article class="tx-panel p-5 flex flex-col">
+      <div class="flex items-center gap-3">
+        <span class="product-icon" style:background="{{ p.color + '1f' }}" style:color="{{ p.color }}"><ProductIcon slug="{{ p.slug }}" cls="w-6 h-6" /></span>
+        <div class="min-w-0"><p class="font-bold">{{ p.name }}</p><p class="text-xs text-muted truncate">{{ p.tagline }}</p></div>
+      </div>
+      <ul class="mt-4 space-y-1.5 flex-1">
+{{#each f in p.features.slice(0, 4)}}
+        <li class="flex gap-2 text-sm text-soft"><span class="mt-0.5 shrink-0" style:color="{{ p.color }}"><IconCheck class="w-4 h-4" /></span> {{ f }}</li>
+{{/each}}
+      </ul>
+      <p class="mt-4 text-xs text-muted">{{ p.pricing }}</p>
+      <div class="mt-4 flex gap-2">
+        <button type="button" class="tx-btn tx-btn-primary tx-btn-sm flex-1" onclick="{{ open('product', p.slug) }}"><IconSparkles /> Request</button>
+        <a href="{{ `/products/${p.slug}` }}" target="_blank" class="tx-btn tx-btn-outline tx-btn-sm">Details <IconArrowUpRight /></a>
+      </div>
+    </article>
+{{/each}}
+  </div>
+
+{{#if mode}}
+  <Modal title="{{ mode is 'sender_id' ? 'Register a Sender ID' : mode is 'sms_topup' ? 'Top up SMS units' : mode is 'custom' ? 'Request a quote' : 'Request ' + (selected?.name ?? 'a product') }}" subtitle="{{ done ? '' : 'We open a request ticket and reply within one business day.' }}" onClose="{{ () => close() }}">
+{{#if done}}
+    <div class="text-center py-6">
+      <IconCheckCircle class="w-12 h-12 text-mint mx-auto" />
+      <p class="mt-4 text-lg font-bold">Request {{ done }} sent</p>
+      <p class="text-sm text-muted mt-1">Our team has been notified. Follow it under Support tickets.</p>
+      <div class="mt-6 flex justify-center gap-2"><button type="button" class="tx-btn tx-btn-ghost" onclick="{{ close() }}">Close</button><a href="/portal/tickets" class="tx-btn tx-btn-primary">View tickets</a></div>
+    </div>
+{{#else}}
+{{#if error}}<div class="tx-alert tx-alert-error mb-4" role="alert"><p>{{ error }}</p></div>{{/if}}
+    <form onsubmit.prevent="{{ submit() }}" novalidate>
+{{#if mode is "sender_id"}}
+      <div class="tx-field">
+        <label class="tx-label" for="s-id">Sender ID</label>
+        <input id="s-id" class="tx-input font-mono uppercase" maxlength="11" placeholder="e.g. COASTLINE" bind:value="{{ form.sender_id }}" />
+        <p class="tx-hint">3 to 11 letters or numbers. This is the name customers see instead of a number.</p>
+      </div>
+      <div class="tx-field">
+        <label class="tx-label" for="s-use">What will you send?</label>
+        <input id="s-use" class="tx-input" placeholder="e.g. appointment reminders and lab results" bind:value="{{ form.use_case }}" />
+      </div>
+      <div class="tx-field">
+        <label class="tx-label" for="s-net">Networks</label>
+        <select id="s-net" class="tx-input" bind:value="{{ form.networks }}"><option>All networks</option><option>Safaricom only</option><option>Airtel only</option></select>
+      </div>
+      <div class="tx-alert tx-alert-info mb-4 text-xs"><p>Networks need your company documents (registration certificate and a signed letter) to approve a Sender ID. We'll tell you exactly what to send.</p></div>
+{{#else if mode is "sms_topup"}}
+      <div class="tx-field">
+        <label class="tx-label" for="s-units">How many SMS units?</label>
+        <input id="s-units" type="number" min="100" step="100" class="tx-input" bind:value="{{ form.units }}" />
+        <div class="mt-2 flex flex-wrap gap-2">
+{{#each n in [1000, 5000, 10000, 50000]}}
+          <button type="button" class="{{ 'tx-badge cursor-pointer ' + (form.units is n ? 'tone-brand' : '') }}" onclick="{{ form.units = n }}">{{ n.toLocaleString() }}</button>
+{{/each}}
+        </div>
+        <p class="tx-hint">We'll send an invoice for the units at your current rate.</p>
+      </div>
+{{#else if mode is "custom"}}
+      <div class="tx-field"><label class="tx-label" for="c-title">What should we build?</label><input id="c-title" class="tx-input" placeholder="e.g. A delivery app for our riders" bind:value="{{ form.title }}" /></div>
+      <div class="grid sm:grid-cols-2 gap-x-3">
+        <div class="tx-field"><label class="tx-label" for="c-time">Ideal timeline</label><input id="c-time" class="tx-input" placeholder="e.g. 3 months" bind:value="{{ form.timeline }}" /></div>
+        <div class="tx-field"><label class="tx-label" for="c-budget">Budget range <span class="text-muted font-normal">(optional)</span></label><input id="c-budget" class="tx-input" placeholder="e.g. KES 300k–500k" bind:value="{{ form.budget }}" /></div>
+      </div>
+{{#else}}
+      <div class="tx-field">
+        <label class="tx-label" for="p-prod">Product</label>
+        <select id="p-prod" class="tx-input" bind:value="{{ product }}">
+{{#each p in Catalog.products}}<option value="{{ p.slug }}">{{ p.name }}</option>{{/each}}
+        </select>
+      </div>
+{{#if selected and selected.plans.length}}
+      <div class="grid grid-cols-3 gap-2 mb-4">
+{{#each plan in selected.plans}}
+        <div class="tx-well p-3 text-center"><p class="text-xs text-muted">{{ plan.name }}</p><p class="text-sm font-bold mt-0.5">{{ plan.price }}</p><p class="text-[10px] text-muted">{{ plan.note }}</p></div>
+{{/each}}
+      </div>
+{{/if}}
+      <div class="grid sm:grid-cols-2 gap-x-3">
+        <div class="tx-field"><label class="tx-label" for="p-users">How many users or staff?</label><input id="p-users" class="tx-input" placeholder="e.g. 12" bind:value="{{ form.users }}" /></div>
+        <div class="tx-field"><label class="tx-label" for="p-time">When do you want to start?</label><input id="p-time" class="tx-input" placeholder="e.g. next month" bind:value="{{ form.timeline }}" /></div>
+      </div>
+{{/if}}
+      <div class="tx-field"><label class="tx-label" for="r-details">Anything else? <span class="text-muted font-normal">(optional)</span></label><textarea id="r-details" rows="3" class="tx-input" bind:value="{{ form.details }}"></textarea></div>
+      <div class="flex justify-end gap-2"><button type="button" class="tx-btn tx-btn-ghost" onclick="{{ close() }}">Cancel</button><button type="submit" class="tx-btn tx-btn-primary" disabled="{{ busy }}">{{ busy ? "Sending…" : "Send request" }} <IconSend /></button></div>
+    </form>
+{{/if}}
+  </Modal>
+{{/if}}
+</div>

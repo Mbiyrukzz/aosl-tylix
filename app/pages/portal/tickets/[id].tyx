@@ -1,0 +1,292 @@
+page PortalTicket
+
+import { IconSend, IconPaperClip, IconFile, IconX, IconCheckCircle, IconRefresh, IconStar, IconClock, IconUser, IconTag, IconDownload, IconSparkles } from "tylix-icons"
+
+props
+  id: string
+
+uses
+  Auth
+  Fmt
+  Live
+
+state
+  ticket: null
+  replies: []
+  loading: true
+  isMissing: false
+  draft: ""
+  files: []
+  uploading: false
+  sending: false
+  error: ""
+  created: false
+  rating: 0
+  hover: 0
+  ratingComment: ""
+  busy: false
+
+computed
+  closed() {
+    return this.ticket and (this.ticket.status is "resolved" or this.ticket.status is "closed")
+  }
+
+action
+  apply(data) {
+    this.ticket = data.ticket
+    this.replies = data.replies
+    document.title = `${data.ticket.ref} · ${data.ticket.subject}`
+    setTimeout(() => {
+      const end = document.getElementById("thread-end")
+      if end {
+        end.scrollIntoView({ block: "end" })
+      }
+    }, 50)
+  }
+
+  async load() {
+    const r = await useApi(`/api/portal/tickets/${this.id}`)
+    if r.ok {
+      this.apply(r.data)
+    } else {
+      this.isMissing = true
+    }
+    this.loading = false
+  }
+
+  pick(e) {
+    for const file of (e.target.files ?? []) {
+      if file.size > 3 * 1024 * 1024 {
+        this.error = `${file.name} is bigger than 3 MB.`
+        continue
+      }
+      const reader = new FileReader()
+      reader.onload = async () => {
+        this.uploading = true
+        const r = await useApi("/api/uploads/file", { method: "POST", body: { data: String(reader.result), name: file.name } })
+        this.uploading = false
+        if r.ok {
+          this.files = [...this.files, r.data]
+        } else {
+          this.error = Live.errorOf(r, "Upload failed.")
+        }
+      }
+      reader.readAsDataURL(file)
+    }
+    e.target.value = ""
+  }
+
+  removeFile(f) {
+    this.files = this.files.filter(x => x.url is not f.url)
+  }
+
+  async send() {
+    if not this.draft.trim() or this.sending {
+      return null
+    }
+    this.sending = true
+    this.error = ""
+    const r = await useApi(`/api/portal/tickets/${this.id}/replies`, { method: "POST", body: { body: this.draft, attachments: this.files } })
+    this.sending = false
+    if r.ok {
+      this.draft = ""
+      this.files = []
+      this.apply(r.data)
+      Live.say("Reply sent")
+    } else {
+      this.error = Live.errorOf(r, "Couldn't send your reply.")
+    }
+  }
+
+  onKey(e) {
+    if (e.ctrlKey or e.metaKey) and e.key is "Enter" {
+      e.preventDefault()
+      this.send()
+    }
+  }
+
+  async setStatus(action) {
+    this.busy = true
+    const r = await useApi(`/api/portal/tickets/${this.id}/status`, { method: "POST", body: { action } })
+    this.busy = false
+    if r.ok {
+      this.apply(r.data)
+      Live.say(action is "resolve" ? "Marked as resolved" : "Ticket reopened")
+    }
+  }
+
+  async rate() {
+    if not this.rating {
+      return null
+    }
+    this.busy = true
+    const r = await useApi(`/api/portal/tickets/${this.id}/rate`, { method: "POST", body: { rating: this.rating, comment: this.ratingComment } })
+    this.busy = false
+    if r.ok {
+      this.apply(r.data)
+      Live.say("Thanks for the feedback!")
+    }
+  }
+
+  isImage(f) {
+    return String(f.type ?? "").startsWith("image/")
+  }
+
+onMount
+  async {
+    this.created = new URLSearchParams(window.location.search).get("created") is "1"
+    await this.load()
+    setInterval(() => {
+      if not document.hidden and not this.sending {
+        useApi(`/api/portal/tickets/${this.id}`).then(r => {
+          if r.ok and r.data.replies.length is not this.replies.length {
+            this.apply(r.data)
+          }
+        })
+      }
+    }, 20000)
+  }
+
+template
+<div>
+{{#if loading}}
+  <div class="tx-skeleton h-8 w-1/2 mb-6"></div>
+  <div class="grid gap-6 lg:grid-cols-[1fr_18rem]"><div class="tx-skeleton h-96"></div><div class="tx-skeleton h-64"></div></div>
+{{#else if isMissing}}
+  <div class="tx-empty"><p class="font-semibold">Ticket not found</p><a href="/portal/tickets" class="tx-btn tx-btn-primary tx-btn-sm mt-4">Back to tickets</a></div>
+{{#else}}
+  <PageHeader title="{{ ticket.subject }}" eyebrow="{{ ticket.ref + ' · ' + ticket.product_name }}" back="/portal/tickets" backLabel="Tickets">
+    <span slot="actions" class="flex flex-wrap gap-2">
+      <StatusBadge value="{{ ticket.status }}" dot="{{ true }}" />
+{{#if ticket.priority is not "normal"}}<StatusBadge value="{{ ticket.priority }}" />{{/if}}
+    </span>
+  </PageHeader>
+
+{{#if created}}
+  <div class="tx-alert tx-alert-success mb-5"><IconCheckCircle /><p><strong>Ticket {{ ticket.ref }} is open.</strong> Our team has been notified. You'll get replies here, by email and in your notifications.</p></div>
+{{/if}}
+{{#if ticket.status is "awaiting_client"}}
+  <div class="tx-alert tx-alert-warn mb-5"><IconClock /><p>We're waiting for your reply. Answer below, or mark it resolved if everything's working.</p></div>
+{{/if}}
+
+  <div class="grid gap-6 lg:grid-cols-[1fr_18rem]">
+    <div class="min-w-0 space-y-4">
+      <article class="tx-panel p-5">
+        <div class="flex items-center gap-3">
+          <Avatar name="{{ ticket.requester?.name ?? 'You' }}" url="{{ ticket.requester?.avatar_url }}" size="{{ 36 }}" />
+          <div><p class="text-sm font-semibold">{{ ticket.requester?.name ?? "You" }}</p><p class="text-xs text-muted">{{ Fmt.dateTime(ticket.created_at) }}</p></div>
+        </div>
+        <p class="mt-4 tx-prose">{{ ticket.body }}</p>
+{{#if ticket.attachments.length}}
+        <div class="mt-4 flex flex-wrap gap-2">
+{{#each f in ticket.attachments}}
+          <a href="{{ f.url }}" target="_blank" rel="noopener" class="tx-well px-3 py-2 flex items-center gap-2 text-sm no-underline text-ink hover:border-brand-soft/40"><IconFile class="w-4 h-4 text-brand" /><span class="truncate max-w-[14rem]">{{ f.name }}</span><IconDownload class="w-3.5 h-3.5 text-muted" /></a>
+{{/each}}
+        </div>
+{{/if}}
+      </article>
+
+{{#each r in replies}}
+      <article class="{{ 'p-5 rounded-[16px] border ' + (r.from_staff ? 'border-brand-soft/25 bg-brand-soft/[0.04]' : 'border-line bg-panel') }}">
+        <div class="flex items-center gap-3">
+          <Avatar name="{{ r.author.name }}" url="{{ r.author.avatar_url }}" size="{{ 36 }}" staff="{{ r.from_staff }}" />
+          <div class="min-w-0">
+            <p class="text-sm font-semibold flex items-center gap-2">{{ r.author.name }}{{#if r.from_staff}}<span class="tx-badge tone-gold">Ashmif</span>{{/if}}</p>
+            <p class="text-xs text-muted">{{ r.from_staff and r.author.job_title ? r.author.job_title + " · " : "" }}{{ Fmt.dateTime(r.created_at) }}</p>
+          </div>
+        </div>
+        <p class="mt-4 tx-prose">{{ r.body }}</p>
+{{#if r.attachments.length}}
+        <div class="mt-4 flex flex-wrap gap-2">
+{{#each f in r.attachments}}
+          <a href="{{ f.url }}" target="_blank" rel="noopener" class="tx-well px-3 py-2 flex items-center gap-2 text-sm no-underline text-ink"><IconFile class="w-4 h-4 text-brand" /><span class="truncate max-w-[14rem]">{{ f.name }}</span></a>
+{{/each}}
+        </div>
+{{/if}}
+      </article>
+{{/each}}
+      <div id="thread-end"></div>
+
+{{#if closed}}
+{{#if ticket.rating}}
+      <div class="tx-panel p-5 flex items-center gap-4">
+        <div class="flex text-gold">{{#each n in [1, 2, 3, 4, 5]}}<IconStar class="{{ 'w-5 h-5 ' + (n <= ticket.rating ? 'fill-current' : 'opacity-30') }}" />{{/each}}</div>
+        <p class="text-sm text-soft">You rated this {{ ticket.rating }}/5{{ ticket.rating_comment ? ": “" + ticket.rating_comment + "”" : "" }}. Thank you!</p>
+      </div>
+{{#else}}
+      <div class="tx-panel p-5 sm:p-6 text-center">
+        <IconSparkles class="w-6 h-6 text-gold mx-auto" />
+        <p class="mt-2 font-semibold">How did we do?</p>
+        <p class="text-sm text-muted">Your rating goes straight to the support lead.</p>
+        <div class="mt-4 flex justify-center gap-1" onmouseleave="{{ hover = 0 }}">
+{{#each n in [1, 2, 3, 4, 5]}}
+          <button type="button" class="p-1 bg-transparent border-0 cursor-pointer text-gold" aria-label="{{ n + ' stars' }}" onmouseenter="{{ hover = n }}" onclick="{{ rating = n }}"><IconStar class="{{ 'w-8 h-8 transition-transform hover:scale-110 ' + (n <= (hover or rating) ? 'fill-current' : 'opacity-30') }}" /></button>
+{{/each}}
+        </div>
+{{#if rating}}
+        <textarea class="tx-input mt-4 text-sm" rows="2" placeholder="Anything we could do better? (optional)" bind:value="{{ ratingComment }}"></textarea>
+        <button type="button" class="tx-btn tx-btn-primary tx-btn-sm mt-3" disabled="{{ busy }}" onclick="{{ rate() }}">Send rating</button>
+{{/if}}
+      </div>
+{{/if}}
+{{/if}}
+
+{{#if ticket.status is not "closed"}}
+      <div class="tx-panel p-4 sm:p-5">
+{{#if error}}<div class="tx-alert tx-alert-error mb-3" role="alert"><p>{{ error }}</p></div>{{/if}}
+        <label for="reply" class="tx-label">{{ closed ? "Still not fixed? Reply to reopen" : "Your reply" }}</label>
+        <textarea id="reply" rows="4" class="tx-input" placeholder="Write a reply…" bind:value="{{ draft }}" onkeydown="{{ onKey($event) }}"></textarea>
+{{#if files.length}}
+        <div class="mt-3 flex flex-wrap gap-2">
+{{#each f in files}}
+          <span class="tx-well pl-3 pr-1 py-1 flex items-center gap-2 text-sm"><IconFile class="w-4 h-4 text-brand" /><span class="truncate max-w-[10rem]">{{ f.name }}</span><button type="button" class="tx-icon-btn !w-7 !h-7" aria-label="Remove" onclick="{{ removeFile(f) }}"><IconX /></button></span>
+{{/each}}
+        </div>
+{{/if}}
+        <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <label class="tx-btn tx-btn-ghost tx-btn-sm cursor-pointer">
+{{#if uploading}}<span class="tx-spinner"></span>{{#else}}<IconPaperClip />{{/if}} Attach
+            <input type="file" multiple class="sr-only" accept="image/*,.pdf,.doc,.docx,.xlsx,.csv,.txt" onchange="{{ pick($event) }}" />
+          </label>
+          <div class="flex items-center gap-2">
+            <span class="hidden sm:inline text-xs text-muted">Ctrl+Enter to send</span>
+            <button type="button" class="tx-btn tx-btn-primary" disabled="{{ sending or uploading or not draft.trim() }}" onclick="{{ send() }}">{{ sending ? "Sending…" : "Send reply" }} <IconSend /></button>
+          </div>
+        </div>
+      </div>
+{{/if}}
+    </div>
+
+    <aside class="space-y-4">
+      <div class="tx-panel p-5 space-y-4 text-sm">
+        <div><p class="tx-kicker mb-1">Status</p><StatusBadge value="{{ ticket.status }}" dot="{{ true }}" /></div>
+        <div><p class="tx-kicker mb-1.5">Handled by</p>
+{{#if ticket.assignee}}
+          <span class="flex items-center gap-2"><Avatar name="{{ ticket.assignee.name }}" url="{{ ticket.assignee.avatar_url }}" size="{{ 26 }}" staff="{{ true }}" /> {{ ticket.assignee.name }}</span>
+{{#else}}
+          <span class="text-muted flex items-center gap-2"><IconUser class="w-4 h-4" /> Being assigned</span>
+{{/if}}
+        </div>
+{{#if not closed}}
+        <div><p class="tx-kicker mb-1">Response target</p>
+{{#if ticket.first_response_at}}
+          <p class="text-mint flex items-center gap-1.5"><IconCheckCircle class="w-4 h-4" /> Responded {{ Fmt.ago(ticket.first_response_at) }}</p>
+{{#else}}
+          <p class="flex items-center gap-1.5" class:text-coral="{{ ticket.sla_breached }}"><IconClock class="w-4 h-4" /> {{ Fmt.countdown(ticket.sla_due_at) }}</p>
+{{/if}}
+        </div>
+{{/if}}
+        <div><p class="tx-kicker mb-1">Category</p><p class="flex items-center gap-1.5"><IconTag class="w-4 h-4 text-muted" /> {{ Fmt.label(ticket.category) }}</p></div>
+        <div><p class="tx-kicker mb-1">Opened</p><p>{{ Fmt.dateTime(ticket.created_at) }}</p></div>
+      </div>
+      <div class="tx-panel p-4 grid gap-2">
+{{#if closed}}
+        <button type="button" class="tx-btn tx-btn-outline" disabled="{{ busy }}" onclick="{{ setStatus('reopen') }}"><IconRefresh /> Reopen ticket</button>
+{{#else}}
+        <button type="button" class="tx-btn tx-btn-outline" disabled="{{ busy }}" onclick="{{ setStatus('resolve') }}"><IconCheckCircle /> It's fixed, mark resolved</button>
+{{/if}}
+      </div>
+    </aside>
+  </div>
+{{/if}}
+</div>

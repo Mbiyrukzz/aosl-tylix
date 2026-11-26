@@ -1,16 +1,45 @@
 capability Auth
 
+// The signed-in user (GET /api/me), with their role and company.
+// home() is where they belong: the console for staff, the portal for
+// clients.
+
 state
   user: null
   loading: true
 
 action
-  async login(email, password) {
-    const result = await useApi("/api/login", { method: "POST", body: { email, password } })
+  isStaff() {
+    return Boolean(this.user and (this.user.role is "staff" or this.user.role is "admin"))
+  }
+
+  isAdmin() {
+    return Boolean(this.user and this.user.role is "admin")
+  }
+
+  home() {
+    return this.isStaff() ? "/admin" : "/portal"
+  }
+
+  firstName() {
+    if not this.user {
+      return ""
+    }
+    return String(this.user.name ?? "").split(" ")[0]
+  }
+
+  async login(email, password, remember) {
+    const result = await useApi("/api/login", { method: "POST", body: { email, password, remember } })
     if result.ok {
-      this.user = result.data
+      await this.refresh()
     }
     return result
+  }
+
+  async refresh() {
+    const me = await useApi("/api/me")
+    this.user = me.ok ? me.data : null
+    return this.user
   }
 
   async logout() {

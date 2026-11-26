@@ -1,0 +1,116 @@
+page PortalBilling
+
+import { IconReceipt, IconDocumentText, IconCheckCircle, IconExclamationCircle, IconCreditCard, IconMobileMoney } from "tylix-icons"
+
+title "Billing · Ashmif portal"
+
+uses
+  Fmt
+
+state
+  docs: []
+  paybill: ""
+  loading: true
+  tab: "invoices"
+
+computed
+  invoices() {
+    return this.docs.filter(d => d.kind is "invoice")
+  }
+
+  quotes() {
+    return this.docs.filter(d => d.kind is "quote")
+  }
+
+  receipts() {
+    return this.docs.filter(d => d.kind is "invoice" and d.receipt_number)
+  }
+
+  outstanding() {
+    return this.invoices.filter(d => d.status is "sent" or d.status is "partial").reduce((s, d) => s + d.balance, 0)
+  }
+
+  paidThisYear() {
+    const y = new Date().getFullYear()
+    return this.invoices.filter(d => d.paid_at and new Date(d.paid_at).getFullYear() is y).reduce((s, d) => s + d.amount_paid, 0)
+  }
+
+  rows() {
+    if this.tab is "quotes" {
+      return this.quotes
+    }
+    if this.tab is "receipts" {
+      return this.receipts
+    }
+    return this.invoices
+  }
+
+action
+  shown(d) {
+    return d.overdue ? "overdue" : d.status
+  }
+
+onMount
+  async {
+    const r = await useApi("/api/portal/billing")
+    if r.ok {
+      this.docs = r.data.documents
+      this.paybill = r.data.paybill
+      if this.quotes.some(q => q.status is "sent") and not this.invoices.some(i => i.status is "sent") {
+        this.tab = "quotes"
+      }
+    }
+    this.loading = false
+  }
+
+template
+<div>
+  <PageHeader title="Billing" subtitle="Invoices, quotations and receipts for your company." />
+{{#if loading}}
+  <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6"><div class="tx-skeleton h-28"></div><div class="tx-skeleton h-28"></div><div class="tx-skeleton h-28"></div></div>
+  <div class="tx-skeleton h-64"></div>
+{{#else}}
+  <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6">
+    <StatCard label="Outstanding" value="{{ Fmt.money(outstanding) }}" hint="{{ invoices.filter(d => d.overdue).length ? invoices.filter(d => d.overdue).length + ' overdue' : 'Nothing overdue' }}" tone="{{ outstanding > 0 ? 'peach' : 'mint' }}"><IconExclamationCircle /></StatCard>
+    <StatCard label="Paid this year" value="{{ Fmt.money(paidThisYear) }}" tone="mint"><IconCheckCircle /></StatCard>
+    <div class="col-span-2 lg:col-span-1 tx-panel p-5 relative overflow-hidden">
+      <p class="relative tx-stat-label"><span class="tx-stat-icon bg-brand-soft/10 text-brand"><IconMobileMoney /></span> Pay by M-Pesa</p>
+{{#if paybill}}
+      <p class="relative mt-2 text-sm">Paybill <strong class="font-mono text-lg">{{ paybill }}</strong></p>
+      <p class="relative text-xs text-muted">Account number = the invoice number</p>
+{{#else}}
+      <p class="relative mt-2 text-sm text-muted">Open an invoice for payment details, or ask us for the Paybill.</p>
+{{/if}}
+    </div>
+  </div>
+
+  <div class="tx-tabs w-fit mb-4">
+    <button type="button" class="tx-tab" class:tx-tab-active="{{ tab is 'invoices' }}" onclick="{{ tab = 'invoices' }}">Invoices <span class="count">{{ invoices.length }}</span></button>
+    <button type="button" class="tx-tab" class:tx-tab-active="{{ tab is 'quotes' }}" onclick="{{ tab = 'quotes' }}">Quotations <span class="count">{{ quotes.length }}</span></button>
+    <button type="button" class="tx-tab" class:tx-tab-active="{{ tab is 'receipts' }}" onclick="{{ tab = 'receipts' }}">Receipts <span class="count">{{ receipts.length }}</span></button>
+  </div>
+
+{{#if rows.length}}
+  <div class="tx-panel overflow-hidden">
+    <div class="tx-table-wrap">
+      <table class="tx-table">
+        <thead><tr><th>Number</th><th>Description</th><th class="hidden md:table-cell">{{ tab is "receipts" ? "Paid on" : tab is "quotes" ? "Valid until" : "Due" }}</th><th class="text-right">Amount</th><th>Status</th></tr></thead>
+        <tbody>
+{{#each d in rows}}
+          <tr data-href="1" onclick="{{ window.location.href = tab is 'receipts' ? `/portal/billing/${d.id}?receipt=1` : `/portal/billing/${d.id}` }}">
+            <td class="font-mono text-sm font-semibold whitespace-nowrap">{{ tab is "receipts" ? d.receipt_number : d.number }}</td>
+            <td class="min-w-[10rem]">{{ d.subject or (d.kind is "quote" ? "Quotation" : "Invoice") }}</td>
+            <td class="hidden md:table-cell text-muted whitespace-nowrap">{{ Fmt.date(tab is "receipts" ? d.paid_at : d.due_on) }}</td>
+            <td class="text-right tabular font-semibold whitespace-nowrap">{{ Fmt.money(tab is "invoices" and d.balance > 0 ? d.balance : d.total, d.currency) }}</td>
+            <td>{{#if tab is "receipts"}}<StatusBadge value="paid" />{{#else}}<StatusBadge value="{{ shown(d) }}" />{{/if}}</td>
+          </tr>
+{{/each}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{{#else}}
+  <div class="tx-empty"><IconReceipt /><p class="font-semibold">Nothing here yet</p><p class="text-sm text-muted mt-1">{{ tab is "quotes" ? "Quotations we send you will appear here." : tab is "receipts" ? "Receipts appear once an invoice is paid." : "Invoices we send you will appear here." }}</p></div>
+{{/if}}
+{{/if}}
+</div>

@@ -1,5 +1,11 @@
 import { defineConfig } from "@tylix/shared";
 
+// The MySQL adapter stores dates as UTC text, and mysql2 reads DATETIME
+// columns in the process's local zone. On a server set to EAT that shifts
+// every date back three hours (wrong "2h ago" times and SLA timers), so
+// the app always runs in UTC. Browsers still show local times.
+process.env.TZ = "UTC";
+
 export default defineConfig({
   // Installable app and offline support (@tylix/pwa). Tylix serves the
   // manifest and the service worker; icons and offline.html are in public/.
@@ -7,10 +13,10 @@ export default defineConfig({
   // visitors get public/offline.html. See the @tylix/pwa README for caching
   // rules, shortcuts and screenshots.
   pwa: {
-    name: "Aosl New",
-    shortName: "Aosl New",
-    themeColor: "#0034CA",
-    backgroundColor: "#ffffff",
+    name: "Ashmif Office Solutions",
+    shortName: "AOS Portal",
+    themeColor: "#020617",
+    backgroundColor: "#020617",
   },
   auth: {
     // Lifetime of an access token, in seconds. Kept short on purpose: the
