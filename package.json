@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "tylix dev",
+    "prebuild": "npm run css:build",
     "build": "tylix build",
     "start": "NODE_ENV=production tylix start",
     "migrate": "tylix migrate",
