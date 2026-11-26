@@ -2,7 +2,7 @@ page Home
 
 import { IconInbox, IconPencil, IconStar, IconArchive, IconGlobe, IconDeviceMobile, IconArrowRight, IconArrowUpRight, IconCheck, IconCheckCircle, IconClock, IconMessageCircle, IconTicket, IconReceipt, IconKanban, IconMobileMoney, IconSend, IconShieldCheck, IconMapPin, IconUsers, IconHeadphones, IconServer, IconGitBranch, IconMessagesSquare, IconCode, IconLayoutDashboard, IconPackage, IconBell, IconSearch } from "tylix-icons"
 
-title "Ashmif Office Solutions · Software that runs East African businesses"
+title "Ashmif Office Solutions · Client portal and team workspace"
 
 uses
   Auth
@@ -86,23 +86,23 @@ template
         <span class="inline-flex items-center gap-1.5"><span class="{{ 'tx-live ' + (healthOk ? 'text-mint' : 'text-peach') }}"></span><span class="hidden sm:inline">{{ health or "checking systems…" }}</span><span class="sm:hidden">{{ healthOk ? "all good" : "see status" }}</span></span>
       </a>
       <h1 class="fade-up fade-up-2 text-[2.6rem] leading-[1.02] sm:text-[4.25rem] lg:text-[5.25rem] font-bold tracking-[-0.045em] text-balance max-w-5xl mx-auto">
-        The software that runs <span class="text-brand">East African business</span>
+        Everything between you and <span class="text-brand">Ashmif</span>, in one place
       </h1>
       <p class="fade-up fade-up-3 mt-6 text-base sm:text-xl text-soft max-w-2xl mx-auto leading-relaxed text-pretty">
-        Eight products for payroll, school fees, hospitals, property, freight and messaging. Business email, hosting and an engineering team that ships in Next.js, Java, Tylix or the stack you already run. Made in Mombasa, supported by people who answer.
+        Ashmif Office Solutions is a software and engineering company in Mombasa. This is where our clients and our team work together every day: support tickets, messages, projects, services, invoices and payments, from the first brief to a live system and every renewal after.
       </p>
       <div class="fade-up fade-up-4 mt-9 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 max-w-sm sm:max-w-none mx-auto">
 {{#if Auth.user}}
         <a href="{{ Auth.home() }}" class="tx-btn tx-btn-primary tx-btn-lg">{{ Auth.isStaff() ? "Open the console" : "Go to my portal" }} <IconArrowRight /></a>
 {{#else}}
-        <a href="/register" class="tx-btn tx-btn-primary tx-btn-lg">Get started <IconArrowRight /></a>
+        <a href="/login" class="tx-btn tx-btn-primary tx-btn-lg">Sign in <IconArrowRight /></a>
+        <a href="/register" class="tx-btn tx-btn-outline tx-btn-lg">Become a client</a>
 {{/if}}
-        <a href="/contact?topic=project" class="tx-btn tx-btn-outline tx-btn-lg">Talk to sales</a>
       </div>
       <p class="fade-up fade-up-4 mt-6 text-xs text-muted flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
-        <span class="inline-flex items-center gap-1.5"><IconCheck class="w-3.5 h-3.5 text-brand" /> M-Pesa & KRA ready</span>
         <span class="inline-flex items-center gap-1.5"><IconCheck class="w-3.5 h-3.5 text-brand" /> Response times you can see</span>
-        <span class="inline-flex items-center gap-1.5"><IconCheck class="w-3.5 h-3.5 text-brand" /> One portal for every product</span>
+        <span class="inline-flex items-center gap-1.5"><IconCheck class="w-3.5 h-3.5 text-brand" /> Projects tracked milestone by milestone</span>
+        <span class="inline-flex items-center gap-1.5"><IconCheck class="w-3.5 h-3.5 text-brand" /> Invoices paid by M-Pesa</span>
       </p>
     </div>
 
