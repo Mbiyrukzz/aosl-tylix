@@ -1,52 +1,101 @@
-# aosl-new
+# Ashmif Office Solutions: website, client portal and staff console
 
-A Tylix app: Tylix (.tyx pages) pages on a Tylix backend (API, database, auth, mail, jobs).
+The rebuild of `aosl-complete` on Tylix, using only Tylix packages. One app
+serves three areas:
+
+| Area | URL | Who |
+| --- | --- | --- |
+| Public website | `/`, `/products`, `/products/:slug`, `/services`, `/status`, `/careers`, `/contact` | Everyone |
+| Client portal | `/portal/*` | Client users (each belongs to a company) |
+| Staff console | `/admin/*` | Staff and administrators |
+
+Products: Payroflix, Rekoncile, MediSynq, Ashmif SMS, SmartRealtors,
+SmartFreight, Tylix (tylix.dev) and Tylix Flux (flux.tylix.dev).
+
+Design: deep navy canvas, emerald brand (`#18C192`) and the Ashmif Group gold,
+flat surfaces (one faint spotlight on the home hero only), in dark and light
+themes (plus "follow device"). `public/reveal.js` fades sections in on scroll
+(`.reveal`); it remembers how far the visitor scrolled, so re-rendered
+sections never go invisible. Tokens live in
+`app/tailwind-input.css`; Tailwind reads them through `tailwind.config.js`.
 
 ## Run it
 
 ```sh
-npm run dev        # http://localhost:3000, reloads on save
-npm test           # API tests in tests/
-npm run doctor     # checks config, database, migrations and frontend
-npm run tinker     # a REPL with your models, services and request()
-npm run build      # typecheck and production bundles
-npm start          # production server (after build and migrate)
+npm install
+npx tylix migrate
+npx tylix db:seed          # sample data, local only (see below)
+npm run dev                # http://localhost:3000
+npx tylix schedule:work    # reminders and SLA escalation (separate process)
+npm test                   # access-rule tests (read-only, needs the seed)
+npm run build              # typecheck + production CSS
 ```
 
-## Layout
+Seeded accounts (password `AshmifDev!2026`, local development only):
+`admin@ashmif.test` (admin), `support@ashmif.test` (staff),
+`client@ashmif.test` (Coastline Clinics, Gold), `bursar@bahari.test`
+(Bahari Academy, Silver).
+
+## Environment
+
+Besides the standard Tylix settings in `.env.example`:
+
+| Variable | |
+| --- | --- |
+| `SUPPORT_INBOX` | Where quick messages, new tickets and enquiries are emailed (default `hello@ashmif.com`) |
+| `MPESA_PAYBILL` | Paybill shown on invoices; the account number is the invoice number. Leave empty to hide the M-Pesa box |
+| `MAIL_DRIVER` etc. | `log` in development; set SMTP or an API driver in production so notices are delivered |
+
+The app always runs in UTC (`tylix.config.ts`): the MySQL adapter stores UTC
+text and mysql2 would otherwise read it in the server's zone, shifting every
+date by three hours on an EAT server.
+
+## What clients get
+
+- **Message support** button on every page: a live conversation with the
+  team. Each message notifies every staff member in-app and emails
+  `SUPPORT_INBOX`; replies reach the client in the widget, by email and as a
+  notification.
+- **Tickets** with product, category, urgency and attachments, a visible
+  response target (Silver 24h, Gold 8h, Platinum 2h; urgent halves it), who's
+  handling it, resolve / reopen, and a 1–5 star rating.
+- **Overview** with open tickets, balance due, renewals, projects,
+  announcements and live incidents.
+- **Services** with renewal dates and one-tap renew / upgrade / cancel requests.
+- **Add a product**: request any product, a Sender ID, SMS units or a quote.
+- **Projects** with progress, milestones and team updates.
+- **Billing**: quotations (accept / decline), invoices with M-Pesa details and
+  an "I've paid" notice, receipts, printable as PDF.
+- **Company & team**: invite teammates, see the account manager.
+- **Settings**: profile photo, alerts, theme, password, signed-in devices.
+- **Ctrl/Cmd+K** command palette.
+
+## What staff get
+
+Overview (queue by SLA, ticket volume, renewals, outstanding money, CSAT),
+inbox with canned replies and "make a ticket", tickets with internal notes and
+assignment, companies (people, services, tickets, projects, billing),
+services and renewals, projects with client updates, quotations / invoices /
+payments / receipts, leads (convert to client), careers (roles and CVs),
+status page incidents and announcements, and staff management (admins).
+
+## Code map
 
 ```
-app/pages/            .tyx pages (the file name is the URL) and components/
-app/routes/           API routes (web.ts); everything under /api/
-app/controllers/      request handlers
-app/models/           one class per table
-app/services/         business logic shared by controllers and jobs
-app/middleware/       functions that run around requests
-app/validators/       rules for incoming data
-app/jobs/             background work (tylix queue:work)
-app/observers/        code that runs when models change
-app/traits/           reusable model behaviour
-app/mail/             mailables and the mailer
-app/Features/         CRUD features made by tylix make:feature
-app/schedule.ts         scheduled tasks (tylix schedule:work)
-app/seeders/          sample data (tylix db:seed)
-database/migrations/  schema changes (tylix migrate)
-tests/                API tests
-public/               static files, served as-is
+app/routes/public.ts     status, contact form, careers (no login)
+app/routes/client.ts     portal API; every query is scoped to the user's company
+app/routes/admin.ts      console API; staffOnly / adminOnly on every route
+app/services/portal.ts   access guards, SLA, notifications, branded mail
+app/services/tickets.ts  create / reply / present tickets
+app/services/billing.ts  line items, totals, numbering (INV/QUO/RCT-YYYY-0001)
+app/services/files.ts    document uploads with real file-signature checks
+app/schedule.ts          SLA breach escalation, renewal and overdue reminders
+app/capabilities/        Auth, Theme, Catalog (product copy), Live (counters, toasts), Fmt
+app/pages/               public pages; portal/ and admin/ have their own layouts
+app/pages/components/    shared UI (AppSidebar, SupportLauncher, DocumentPaper, …)
+resources/mail/notice.html  the one branded email layout
 ```
 
-Each folder has a README saying what goes there and which command makes it.
-
-## Make things
-
-```sh
-tylix make:feature Invoice title:string total:number   # model, migration, CRUD API
-tylix make:page Reports --auth                          # a page and its route
-tylix make:component StatCard
-tylix make:service Billing
-tylix make:controller Invoice
-tylix make:job SendInvoice                              # background job
-tylix make:observer Audit --model User                  # model lifecycle hooks
-tylix make:trait HasSlug                                # reusable model behaviour
-tylix make:channel chat                                 # live channel + demo page
-```
+Product copy is in `app/capabilities/Catalog.tyx` (keep slugs in step with
+`app/services/catalog.ts`).
+# aosl-tylix
