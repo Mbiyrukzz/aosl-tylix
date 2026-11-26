@@ -21,6 +21,7 @@ import { cleanAttachments } from "../services/files.js";
 import { cleanItems, nextNumber, presentDoc, totals, PAYBILL } from "../services/billing.js";
 import { addReply, createTicket, presentTickets, ticketThread } from "../services/tickets.js";
 import { inviteUser } from "./client.js";
+import { shortLink } from "../services/sms.js";
 import {
     type Row,
     APP_URL,
@@ -127,6 +128,13 @@ function projectFields(b: Row) {
 function presentSub(s: Row, companies: Record<number, Row> = {}) {
     const days = s.renews_on ? Math.ceil((new Date(s.renews_on).getTime() - Date.now()) / 86400_000) : null;
     return { ...s, amount: num(s.amount), auto_renew: Boolean(s.auto_renew), product_name: s.product ? productName(s.product) : null, days_left: days, company_name: companies[s.company_id]?.name ?? "" };
+}
+
+// Everyone at a company with an active service for this product.
+async function notifyProductUsers(product: string, n: { kind: string; title: string; url: string; sms: string }) {
+    const subs = (await Subscription.where("product", product).get()) as Row[];
+    const companyIds = [...new Set(subs.filter((s) => s.status === "active").map((s) => Number(s.company_id)))];
+    for (const id of companyIds) await notifyCompany(id, { kind: n.kind, title: n.title, url: n.url }, { sms: n.sms });
 }
 
 export async function routes(router: Router, { auth }: { auth: (handler: Handler) => Handler }) {
@@ -459,6 +467,7 @@ export async function routes(router: Router, { auth }: { auth: (handler: Handler
                             actionUrl: `${APP_URL}/portal/tickets/${t.id}`,
                             actionLabel: "Rate our support",
                         },
+                        sms: `Your ticket ${t.ref} is ${changes.status}: ${t.subject}. Not fixed? Reply and it reopens. ${shortLink(`${APP_URL}/portal/tickets/${t.id}`)}`,
                     },
                 );
             }
@@ -1107,16 +1116,26 @@ export async function routes(router: Router, { auth }: { auth: (handler: Handler
             if (!PRODUCT_SLUGS.includes(b.product)) return res.status(422).json({ error: "Pick the affected product." });
             const title = text(b.title, 200);
             if (!title) return res.status(422).json({ error: "Describe the incident in a line." });
-            return res.status(201).json(
-                await Incident.create({
-                    product: b.product,
-                    title,
-                    body: text(b.body, 4000),
-                    impact: oneOf(b.impact, ["minor", "major", "maintenance"] as const, "minor"),
-                    status: "investigating",
-                    started_at: nowIso(),
-                }),
-            );
+            const impact = oneOf(b.impact, ["minor", "major", "maintenance"] as const, "minor");
+            const incident = await Incident.create({
+                product: b.product,
+                title,
+                body: text(b.body, 4000),
+                impact,
+                status: "investigating",
+                started_at: nowIso(),
+            });
+            // An outage: text the people who use that product (if they
+            // turned SMS on). Minor issues and maintenance stay on /status.
+            if (impact === "major") {
+                await notifyProductUsers(b.product, {
+                    kind: "incident",
+                    title: `${productName(b.product)} outage: ${title}`,
+                    url: "/status",
+                    sms: `${productName(b.product)} is having an outage: ${title}. We're working on it. Updates: ${shortLink(`${APP_URL}/status`)}`,
+                });
+            }
+            return res.status(201).json(incident);
         }),
     );
 
@@ -1134,6 +1153,14 @@ export async function routes(router: Router, { auth }: { auth: (handler: Handler
                 body: note ? `${i.body ? i.body + "\n\n" : ""}[${status}] ${note}` : i.body,
                 resolved_at: status === "resolved" ? nowIso() : null,
             });
+            if (i.impact === "major" && status === "resolved" && i.status !== "resolved") {
+                await notifyProductUsers(i.product, {
+                    kind: "incident",
+                    title: `${productName(i.product)} is back: ${i.title}`,
+                    url: "/status",
+                    sms: `${productName(i.product)} is working again (${i.title}). Thanks for your patience. ${shortLink(`${APP_URL}/status`)}`,
+                });
+            }
             return res.json({ ok: true });
         }),
     );

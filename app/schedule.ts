@@ -2,7 +2,7 @@
  * Scheduled work, run by `npx tylix schedule:work`.
  *
  * - Every 15 minutes: tickets that missed their first-response target are
- *   escalated to staff once (in-app + support inbox email).
+ *   escalated to staff once (in-app + support inbox email + SMS).
  * - Every morning at 08:00 EAT: renewal reminders 30, 14, 7 and 1 days before
  *   a service renews (to the client's team and to staff), and overdue
  *   invoice reminders on the 1st, 7th and 14th day overdue.
@@ -14,6 +14,7 @@ import { BillingDocument } from "./models/BillingDocument.js";
 import { Company } from "./models/Company.js";
 import { cache } from "@tylix/core";
 import { APP_URL, money, notifyCompany, notifyStaff, type Row } from "./services/portal.js";
+import { shortLink } from "./services/sms.js";
 
 const RENEWAL_DAYS = [30, 14, 7, 1];
 const OVERDUE_DAYS = [1, 7, 14];
@@ -46,6 +47,7 @@ export async function escalateBreaches() {
                 actionUrl: `${APP_URL}/admin/tickets/${t.id}`,
                 actionLabel: "Reply now",
             },
+            { sms: `SLA breached: ${t.ref} (${t.priority}${company ? ", " + company.name : ""}) has no reply yet. ${t.subject}. ${shortLink(`${APP_URL}/admin/tickets/${t.id}`)}` },
         );
     }
 }
@@ -69,6 +71,8 @@ export async function sendReminders() {
                     actionUrl: `${APP_URL}/portal/services`,
                     actionLabel: "Open services",
                 },
+                // Texts only close to the date, and only if it won't renew by itself.
+                sms: !s.auto_renew && days <= 7 ? `${s.name} renews ${when} (${String(s.renews_on).slice(0, 10)}). Request the renewal to avoid interruption: ${shortLink(`${APP_URL}/portal/services`)}` : false,
             },
         );
         await notifyStaff({ kind: "billing", title: `Renewal ${when}: ${s.name}`, body: `Company #${s.company_id}`, url: "/admin/services" });
@@ -91,6 +95,7 @@ export async function sendReminders() {
                     actionUrl: `${APP_URL}/portal/billing/${d.id}`,
                     actionLabel: "View invoice",
                 },
+                sms: `Reminder: invoice ${d.number} is ${overdue} day${overdue === 1 ? "" : "s"} overdue, ${money(balance, d.currency)} outstanding. ${shortLink(`${APP_URL}/portal/billing/${d.id}`)}`,
             },
         );
     }

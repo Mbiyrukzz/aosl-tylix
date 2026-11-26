@@ -7,6 +7,7 @@ import { JobApplication } from "../models/JobApplication.js";
 import { PRODUCTS, PRODUCT_SLUGS, productName } from "../services/catalog.js";
 import { storeDataUrl } from "../services/files.js";
 import { type Row, APP_URL, byNewest, notifyStaff, oneOf, sendNotice, text } from "../services/portal.js";
+import { startHubReporting } from "../services/hub.js";
 
 const formLimiter = createRateLimiter({ name: "public-forms", max: 8, windowMs: 15 * 60 * 1000, store: "shared" });
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -27,6 +28,10 @@ async function limited(req: TylixRequest, res: TylixResponse): Promise<boolean> 
 const ACTIVE = ["investigating", "identified", "monitoring"];
 
 export async function routes(router: Router) {
+    // Heartbeat and user numbers to the Ashmif Hub (no-op until HUB_URL
+    // and HUB_API_KEY are set). Guarded inside, so a second call is harmless.
+    startHubReporting(process.env.npm_package_version ?? "0.1.0");
+
     // Live status of every product, plus the last 14 days of incidents.
     router.get("/api/public/status", async (_req, res) => {
         const since = Date.now() - 14 * 86400_000;

@@ -9,6 +9,7 @@ import { User } from "../models/User.js";
 import { Company } from "../models/Company.js";
 import { Notification } from "../models/Notification.js";
 import { NoticeMail, type NoticeData } from "../mail/NoticeMail.js";
+import { sendSms, smsNumberFor, supportNumbers } from "./sms.js";
 
 export type Row = Record<string, any>;
 
@@ -165,7 +166,14 @@ export interface NotifyInput {
     url?: string;
 }
 
-export async function notifyUser(userId: number, input: NotifyInput, options: { email?: NoticeData | false } = {}) {
+export interface NotifyOptions {
+    email?: NoticeData | false;
+    // Text message for people who turned SMS on in Settings and have a
+    // phone number. Keep it short: link + one line.
+    sms?: string | false;
+}
+
+export async function notifyUser(userId: number, input: NotifyInput, options: NotifyOptions = {}) {
     await Notification.create({
         user_id: userId,
         kind: input.kind,
@@ -173,27 +181,33 @@ export async function notifyUser(userId: number, input: NotifyInput, options: { 
         body: text(input.body ?? "", 2000),
         url: input.url ?? null,
     });
-    if (options.email) {
-        const user = (await User.find(userId)) as Row | null;
-        if (user && user.notify_email !== 0 && user.notify_email !== false) {
-            sendNotice(user.email, options.email);
-        }
+    if (!options.email && !options.sms) return;
+    const user = (await User.find(userId)) as Row | null;
+    if (!user) return;
+    if (options.email && user.notify_email !== 0 && user.notify_email !== false) {
+        sendNotice(user.email, options.email);
+    }
+    if (options.sms) {
+        const phone = smsNumberFor(user);
+        if (phone) sendSms(phone, options.sms);
     }
 }
 
 // Everyone at a client company (e.g. a project update).
-export async function notifyCompany(companyId: number, input: NotifyInput, options: { email?: NoticeData | false; except?: number } = {}) {
+export async function notifyCompany(companyId: number, input: NotifyInput, options: NotifyOptions & { except?: number } = {}) {
     const people = (await User.where("company_id", companyId).get()) as Row[];
     for (const p of people) {
         if (p.id === options.except || isStaff(p)) continue;
-        await notifyUser(p.id, input, { email: options.email });
+        await notifyUser(p.id, input, { email: options.email, sms: options.sms });
     }
 }
 
 // Every staff member gets the in-app notification; the shared support
-// inbox gets the email once.
-export async function notifyStaff(input: NotifyInput, email?: NoticeData, options: { except?: number } = {}) {
+// inbox gets the email once. With options.sms, staff who turned SMS on
+// and the on-call numbers in SUPPORT_SMS get a text (one per number).
+export async function notifyStaff(input: NotifyInput, email?: NoticeData, options: { except?: number; sms?: string | false } = {}) {
     const staff = (await User.whereIn("role", STAFF_ROLES).get()) as Row[];
+    const phones: string[] = [];
     for (const s of staff) {
         if (s.id === options.except) continue;
         await Notification.create({
@@ -203,6 +217,16 @@ export async function notifyStaff(input: NotifyInput, email?: NoticeData, option
             body: text(input.body ?? "", 2000),
             url: input.url ?? null,
         });
+        const phone = smsNumberFor(s);
+        if (phone) phones.push(phone);
     }
     if (email) sendNotice(SUPPORT_INBOX, email);
+    if (options.sms) sendSms([...phones, ...supportNumbers()], options.sms);
+}
+
+// A one-off text to a single person (no in-app notification), only if
+// they turned SMS on. Used for receipts like "we got your ticket".
+export function smsUser(user: Row | null | undefined, message: string): void {
+    const phone = smsNumberFor(user);
+    if (phone) sendSms(phone, message);
 }

@@ -3,7 +3,8 @@ import { TicketReply } from "../models/TicketReply.js";
 import { Company } from "../models/Company.js";
 import { User } from "../models/User.js";
 import { productName } from "./catalog.js";
-import { type Row, APP_URL, isStaff, notifyStaff, notifyUser, nowIso, parseJson, slaDueAt, userDirectory, byNewest } from "./portal.js";
+import { type Row, APP_URL, isStaff, notifyStaff, notifyUser, nowIso, parseJson, slaDueAt, smsUser, userDirectory, byNewest } from "./portal.js";
+import { shortLink } from "./sms.js";
 import type { StoredFile } from "./files.js";
 
 export interface NewTicket {
@@ -53,8 +54,18 @@ export async function createTicket(input: NewTicket): Promise<Row> {
             actionUrl: `${APP_URL}/admin/tickets/${ticket.id}`,
             actionLabel: "Open ticket",
         },
-        { except: input.createdByStaff?.id },
+        {
+            except: input.createdByStaff?.id,
+            sms: `New ${input.priority} ticket ${ref} from ${who}${where}: ${input.subject}. ${shortLink(`${APP_URL}/admin/tickets/${ticket.id}`)}`,
+        },
     );
+
+    // Raised by the client: a receipt by SMS (if they turned SMS on) with
+    // the reference and the response target, so they know it landed.
+    if (!input.createdByStaff) {
+        const hours = Math.max(1, Math.round((new Date(String(ticket.sla_due_at)).getTime() - Date.now()) / 3600_000));
+        smsUser(input.user, `We've received your ticket ${ref}: ${input.subject}. We aim to reply within ${hours}h. Track it: ${shortLink(`${APP_URL}/portal/tickets/${ticket.id}`)}`);
+    }
 
     // Opened by staff on a client's behalf: tell the client.
     if (input.createdByStaff) {
@@ -70,6 +81,7 @@ export async function createTicket(input: NewTicket): Promise<Row> {
                     actionUrl: `${APP_URL}/portal/tickets/${ticket.id}`,
                     actionLabel: "View ticket",
                 },
+                sms: `${input.createdByStaff.name} from Ashmif opened ticket ${ref} for you: ${input.subject}. ${shortLink(`${APP_URL}/portal/tickets/${ticket.id}`)}`,
             },
         );
     }
@@ -117,10 +129,12 @@ export async function addReply(ticket: Row, author: Row, body: string, internal:
                     actionUrl: `${APP_URL}/portal/tickets/${ticket.id}`,
                     actionLabel: "Reply in the portal",
                 },
+                sms: `${author.name} replied on your ticket ${ticket.ref}: "${snippet(body)}" Reply: ${shortLink(`${APP_URL}/portal/tickets/${ticket.id}`)}`,
             },
         );
     } else {
         const target = { kind: "ticket", title: `${author.name} replied on ${ticket.ref}`, body: body.slice(0, 140), url: `/admin/tickets/${ticket.id}` };
+        const sms = `${author.name} replied on ${ticket.ref}: "${snippet(body)}" ${shortLink(`${APP_URL}/admin/tickets/${ticket.id}`)}`;
         if (ticket.assigned_to) {
             await notifyUser(ticket.assigned_to, target, {
                 email: {
@@ -131,12 +145,19 @@ export async function addReply(ticket: Row, author: Row, body: string, internal:
                     actionUrl: `${APP_URL}/admin/tickets/${ticket.id}`,
                     actionLabel: "Open ticket",
                 },
+                sms,
             });
         } else {
-            await notifyStaff(target);
+            await notifyStaff(target, undefined, { sms });
         }
     }
     return reply;
+}
+
+// The first words of a reply, for a text message.
+function snippet(body: string, max = 90): string {
+    const flat = body.replace(/\s+/g, " ").trim();
+    return flat.length > max ? flat.slice(0, max - 1) + "…" : flat;
 }
 
 export function presentTicket(t: Row, people: Record<number, Row> = {}, companyNames: Record<number, string> = {}) {

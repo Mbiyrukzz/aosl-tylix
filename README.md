@@ -45,6 +45,24 @@ Besides the standard Tylix settings in `.env.example`:
 | `SUPPORT_INBOX` | Where quick messages, new tickets and enquiries are emailed (default `hello@ashmif.com`) |
 | `MPESA_PAYBILL` | Paybill shown on invoices; the account number is the invoice number. Leave empty to hide the M-Pesa box |
 | `MAIL_DRIVER` etc. | `log` in development; set SMTP or an API driver in production so notices are delivered |
+| `SMS_DRIVER` | `log` prints texts to the console; `ashmif` sends through Ashmif SMS (`ASHMIF_SMS_URL`, `ASHMIF_SMS_TOKEN`, `ASHMIF_SMS_SENDER_ID`). See below |
+| `SUPPORT_SMS` | On-call phones (comma separated) texted about new tickets, client replies on unassigned tickets and SLA breaches |
+| `HUB_URL`, `HUB_API_KEY` | Ashmif Hub: heartbeat every minute, user and company counts every ten minutes (`app/services/hub.ts`). Off while either is empty |
+
+### SMS (`app/services/sms.ts`)
+
+Only people who saved a phone number and turned **Send me SMS updates** on in
+Settings get texts (off by default). Numbers are normalised to `2547…`.
+
+- **Clients**: receipt when they raise a ticket (ref + response target),
+  ticket opened for them by staff, staff replies, ticket resolved/closed,
+  major incidents on a product they subscribe to (and its resolution),
+  manual renewals due in 7 or 1 days, overdue invoices.
+- **Staff** (opted-in staff plus `SUPPORT_SMS`): every new ticket, client
+  replies (assignee, or everyone when unassigned), SLA breaches.
+
+`notifyUser` / `notifyCompany` / `notifyStaff` take an `sms` option next to
+`email`; sending never throws or blocks the request.
 
 The app always runs in UTC (`tylix.config.ts`): the MySQL adapter stores UTC
 text and mysql2 would otherwise read it in the server's zone, shifting every
