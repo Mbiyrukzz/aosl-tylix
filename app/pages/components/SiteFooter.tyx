@@ -14,7 +14,7 @@ computed
   }
 
 template
-  <footer class="relative mt-auto border-t border-line bg-panel/40">
+  <footer class="site-footer relative mt-auto border-t border-line bg-panel/40">
     <div class="tx-container py-14">
       <div class="relative overflow-hidden rounded-[28px] border border-line bg-panel px-6 py-10 sm:px-12 sm:py-14 mb-16">
         <div class="absolute inset-0 bg-dots opacity-60 mask-fade-b"></div>

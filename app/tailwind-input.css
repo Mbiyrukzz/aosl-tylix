@@ -492,9 +492,14 @@ select.tx-input {
 
 @media print {
   body { background: #fff !important; }
-  .no-print, .app-sidebar, .app-topbar, .support-fab, .support-panel, .tx-nav, footer { display: none !important; }
+  /* .site-footer, not a bare `footer`: DocumentPaper has its own <footer>. */
+  .no-print, .app-sidebar, .app-topbar, .support-fab, .support-panel, .tx-nav, .site-footer { display: none !important; }
+  .app, .tx-shell { background: #fff !important; }
   .app-main { padding: 0 !important; }
   .doc-paper { border: 0; border-radius: 0; box-shadow: none; }
+  /* The logo marks are CSS masks/backgrounds, which browsers skip when
+     "Background graphics" is off (the default), so the logo vanished. */
+  .doc-paper, .doc-paper * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 
 /* ── Scroll reveal (public/reveal.js adds .is-in) ───────────────────── */
